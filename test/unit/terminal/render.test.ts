@@ -49,3 +49,46 @@ describe("renderFull", () => {
     expect(renderFull("H", ["a", ""]).split("\n").at(-1)).toBe("…(1 empty line)");
   });
 });
+
+describe("repeated rows", () => {
+  it("collapses three or more identical rows into one line", () => {
+    const rows = ["text", "~", "~", "~", "~", "status", ""];
+    expect(renderFull("H", rows).split("\n")).toEqual([
+      "H",
+      "───",
+      "1│text",
+      "2│~",
+      "…(rows 3-5 same as row 2)",
+      "6│status",
+      "…(1 empty line)",
+    ]);
+  });
+
+  it("keeps two identical rows as they are", () => {
+    expect(renderFull("H", ["~", "~", "x"]).split("\n").slice(2)).toEqual(["1│~", "2│~", "3│x"]);
+  });
+
+  it("collapses runs of blank rows between content", () => {
+    const rows = ["a", "", "", "", "b"];
+    expect(renderFull("H", rows).split("\n").slice(2)).toEqual([
+      "1│a",
+      "2│",
+      "…(rows 3-4 same as row 2)",
+      "5│b",
+    ]);
+  });
+});
+
+describe("unicode widths", () => {
+  it("treats emoji as two cells wide", async () => {
+    const { screen } = await screenOf("🚀x\x1b[D", { cursor: true });
+    expect(screen.rows[0]).toBe("🚀[x]");
+    expect(screen.cursorCol).toBe(3);
+  });
+
+  it("keeps combining marks on their base character", async () => {
+    const { screen } = await screenOf("éx\x1b[D", { cursor: true });
+    expect(screen.rows[0]).toBe("é[x]");
+    expect(screen.cursorCol).toBe(2);
+  });
+});

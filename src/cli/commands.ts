@@ -3,6 +3,7 @@ import { DaemonClient, resolveCwd, resolveSecret, startRequestEnv } from "../dae
 import type { Params, ScreenResult } from "../daemon/protocol.js";
 import { buildInput, formatList, formatScreen } from "../format.js";
 import { isKeyName } from "../keys/grammar.js";
+import { MOUSE_ACTIONS, type MouseAction } from "../keys/mouse.js";
 import type { InputItem, SessionInfo } from "../session/session.js";
 import type { WaitSpec } from "../session/wait.js";
 
@@ -59,7 +60,7 @@ export function helpText(): string {
     "Commands:",
     ...Object.values(USAGE).map((u) => `  ${u}`),
     "",
-    'Keys: enter, tab, esc, backspace, delete, up, down, left, right, home, end, pageup, pagedown, space, f1-f12, any character, with ctrl+, alt+ or shift+ (e.g. ctrl+c). With --input, tokens that are key names are keys and everything else is text; prefix "text:" to send a key name as text.',
+    'Keys: enter, tab, esc, backspace, delete, up, down, left, right, home, end, pageup, pagedown, space, f1-f12, any character, with ctrl+, alt+ or shift+ (e.g. ctrl+c). With --input, tokens that are key names are keys, mouse:ACTION:ROW:COL is a mouse event (click, double_click, right_click, middle_click, scroll_up, scroll_down), and everything else is text; prefix "text:" to send a key name as text.',
   ].join("\n");
 }
 
@@ -118,6 +119,14 @@ function styles(value: unknown, command: string): "marks" | "none" {
 export function inputTokens(tokens: string[]): InputItem[] {
   return tokens.map((t) => {
     if (t.startsWith("text:")) return { text: t.slice(5) };
+    const mouse = /^mouse:([a-z_]+):(\d+):(\d+)$/.exec(t);
+    if (mouse) {
+      const action = mouse[1] as MouseAction;
+      if (!MOUSE_ACTIONS.includes(action)) {
+        throw new UsageError(`unknown mouse action ${action}; use ${MOUSE_ACTIONS.join(", ")}`);
+      }
+      return { mouse: { action, row: Number(mouse[2]), col: Number(mouse[3]) } };
+    }
     return isKeyName(t) && t.length > 1 ? { key: t } : { text: t };
   });
 }

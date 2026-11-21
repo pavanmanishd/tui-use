@@ -8,19 +8,6 @@ nano
  6│- call bank
  7│- fix the bug
  8│
- 9│
-10│
-11│
-12│
-13│
-14│
-15│
-16│
-17│
-18│
-19│
-20│
-21│
-22│
+…(rows 9-22 same as row 8)
 23│«^G» Get Help  «^O» WriteOut  «^R» Read File «^Y» Prev Pg   «^K» Cut Text  «^C» Cur Pos
 24│«^X» Exit      «^J» Justify   «^W» Where is  «^V» Next Pg   «^U» UnCut Text«^T» To Spell

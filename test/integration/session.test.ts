@@ -11,12 +11,12 @@ describe("Session", () => {
     expect(await s.screenText()).toContain("burst 5");
   });
 
-  it("reports settled false on a spinner", async () => {
+  it("reports a spinner instead of waiting for the timeout", async () => {
     const s = startSession(fixture("spinner.mjs"));
     const start = Date.now();
-    const outcome = await s.wait({ timeout_ms: 1000 });
-    expect(outcome).toEqual({ settled: false, timed_out: true });
-    expect(Date.now() - start).toBeGreaterThanOrEqual(950);
+    const outcome = await s.wait({ timeout_ms: 5000 });
+    expect(outcome).toEqual({ settled: true, timed_out: false, spinner_row: 1 });
+    expect(Date.now() - start).toBeLessThan(2000);
   });
 
   it("waits for text across slow output", async () => {
@@ -235,5 +235,23 @@ describe("terminal queries", () => {
     );
     expect(await s.wait({ text: "got", timeout_ms: 3000 })).toMatchObject({ fired: "text" });
     expect(await s.screenText()).toContain("got ^[[1;4");
+  });
+});
+
+describe("mouse input", () => {
+  it("sends SGR mouse clicks to a program that asked for them", async () => {
+    const s = startSession(fixture("mouse.mjs", "sgr"));
+    await s.wait({ text: "ready" });
+    s.send([{ mouse: { action: "click", row: 3, col: 7 } }]);
+    await s.wait({ text: "got" });
+    expect(await s.screenText()).toContain('got "\\u001b[<0;7;3M');
+  });
+
+  it("refuses mouse input when the program did not turn it on", async () => {
+    const s = startSession(fixture("keys.mjs"));
+    await s.wait({ text: "ready" });
+    expect(() => s.send([{ mouse: { action: "click", row: 1, col: 1 } }])).toThrow(
+      /has not turned on mouse input/,
+    );
   });
 });

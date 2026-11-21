@@ -1,8 +1,8 @@
-import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import { setTimeout as sleep } from "node:timers/promises";
 import { encodeKey, encodePaste, encodeText } from "../keys/encode.js";
 import { parseKey } from "../keys/grammar.js";
+import { encodeMouse, type MouseInput } from "../keys/mouse.js";
 import { type Pty, spawnPty } from "../pty/spawn.js";
 import { Recorder } from "../recorder/writer.js";
 import { type Frame, renderDiff } from "../terminal/diff.js";
@@ -26,7 +26,12 @@ export interface Owner {
   kind: OwnerKind;
 }
 
-export type InputItem = { text: string } | { key: string } | { paste: string } | { secret: string };
+export type InputItem =
+  | { text: string }
+  | { key: string }
+  | { paste: string }
+  | { secret: string }
+  | { mouse: MouseInput };
 
 export type SnapshotMode = "full" | "diff";
 
@@ -45,6 +50,7 @@ export interface SessionOptions {
 
 export interface WaitOutcome {
   settled?: boolean;
+  spinner_row?: number;
   fired?: Condition;
   timed_out: boolean;
 }
@@ -186,6 +192,8 @@ export class Session extends EventEmitter {
         });
       } else if ("text" in item) {
         out += encodeText(item.text);
+      } else if ("mouse" in item) {
+        out += encodeMouse(item.mouse, this.emulator.mouseModes);
       } else if ("paste" in item) {
         out += encodePaste(item.paste, this.emulator.bracketedPaste);
       } else {
@@ -250,18 +258,17 @@ export class Session extends EventEmitter {
   async wait(spec: WaitSpec | undefined, afterChunk?: number): Promise<WaitOutcome> {
     const wait = normalizeWait(spec);
     if (wait.settle) {
-      const settled = await settle({
+      const result = await settle({
         idleMs: wait.settleIdleMs,
         timeoutMs: wait.timeoutMs,
         lastActivity: () => Math.max(this.lastOutputAt, this.lastInputAt),
-        screenHash: async () =>
-          createHash("sha1")
-            .update(await this.screenText())
-            .digest("hex"),
+        screenRows: async () => (await this.screenText()).split("\n"),
         exited: () => !this.running,
         started: () => this.hasOutput,
       });
-      return { settled, timed_out: !settled };
+      const outcome: WaitOutcome = { settled: result.settled, timed_out: !result.settled };
+      if (result.spinnerRow !== undefined) outcome.spinner_row = result.spinnerRow;
+      return outcome;
     }
 
     return new Promise<WaitOutcome>((resolve) => {

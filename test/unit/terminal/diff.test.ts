@@ -33,3 +33,13 @@ describe("renderDiff", () => {
     expect(renderDiff("H", { cols: 100, rows: prev.rows }, prev)).toContain(" 1│line 0");
   });
 });
+
+describe("renderDiff repeated rows", () => {
+  it("collapses identical consecutive changed rows", () => {
+    const prev = { cols: 80, rows: Array.from({ length: 10 }, (_, i) => `old ${i}`) };
+    const cur = { cols: 80, rows: prev.rows.map((r, i) => (i >= 2 && i <= 5 ? "~" : r)) };
+    expect(renderDiff("H", cur, prev)).toBe(
+      "H\n───\n 3│~\n…(rows 4-6 same as row 3)\n(4 of 10 rows changed)",
+    );
+  });
+});

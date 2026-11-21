@@ -103,3 +103,12 @@ describe("format", () => {
     ).toBe("s1 (py) · exited 0 · 120x40 · idle 5ms · owner mcp · python3");
   });
 });
+
+describe("mouse tokens", () => {
+  it("parses mouse:ACTION:ROW:COL", () => {
+    expect(inputTokens(["mouse:click:5:12"])).toEqual([
+      { mouse: { action: "click", row: 5, col: 12 } },
+    ]);
+    expect(() => inputTokens(["mouse:poke:1:1"])).toThrow(/unknown mouse action poke/);
+  });
+});
