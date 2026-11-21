@@ -15,7 +15,8 @@ export const claudeCode: Adapter = {
       "-p",
       prompt,
       "--output-format",
-      "json",
+      "stream-json",
+      "--verbose",
       "--dangerously-skip-permissions",
       "--model",
       model,
@@ -25,13 +26,8 @@ export const claudeCode: Adapter = {
     ];
   },
   parse(stdout): Metrics {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(stdout);
-    } catch {
-      return { ...empty, agentError: "claude printed no JSON result" };
-    }
-    const events = Array.isArray(parsed) ? parsed : [parsed];
+    const events = parseEvents(stdout);
+    if (events.length === 0) return { ...empty, agentError: "claude printed no JSON result" };
     const result = events.find((e) => e?.type === "result");
     if (!result) return { ...empty, agentError: "claude printed no result event" };
     const u = result.usage;
@@ -48,6 +44,42 @@ export const claudeCode: Adapter = {
         ? String(result.terminal_reason ?? result.subtype ?? "error")
         : null,
       apiError: result.terminal_reason === "api_error" || result.api_error_status != null,
+      ...toolCounts(events),
     };
   },
 };
+
+// biome-ignore lint/suspicious/noExplicitAny: events are untyped CLI output
+type Event = any;
+
+function parseEvents(stdout: string): Event[] {
+  try {
+    const parsed = JSON.parse(stdout);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return stdout
+      .split("\n")
+      .filter((l) => l.startsWith("{"))
+      .flatMap((l) => {
+        try {
+          return [JSON.parse(l)];
+        } catch {
+          return [];
+        }
+      });
+  }
+}
+
+function toolCounts(events: Event[]): { toolCalls: number | null; tuiUseCalls: number | null } {
+  const assistant = events.filter((e) => e?.type === "assistant");
+  if (assistant.length === 0) return { toolCalls: null, tuiUseCalls: null };
+  const names: string[] = assistant.flatMap((e) =>
+    (e.message?.content ?? [])
+      .filter((c: Event) => c?.type === "tool_use")
+      .map((c: Event) => String(c.name)),
+  );
+  return {
+    toolCalls: names.length,
+    tuiUseCalls: names.filter((n) => n.startsWith("mcp__tui-use__")).length,
+  };
+}

@@ -20,6 +20,8 @@ const row = (over: Partial<ResultRow>): ResultRow => ({
   wall_ms: 60_000,
   agent_error: null,
   infra_error: null,
+  tool_calls: null,
+  tui_use_calls: null,
   transcript: "x",
   ...over,
 });

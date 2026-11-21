@@ -8,6 +8,9 @@ import { agentPrompt, type Task } from "./tasks.js";
 
 export const AGENT_TIMEOUT_MS = 10 * 60_000;
 
+const KILL_NEW_AGENT_PROCESSES =
+  'for p in $(pgrep -u agent); do case " $1 " in *" $p "*) ;; *) kill -KILL "$p" 2>/dev/null ;; esac; done';
+
 const QUIET_ENV = {
   DISABLE_AUTOUPDATER: "1",
   NO_UPDATE_NOTIFIER: "1",
@@ -37,6 +40,8 @@ export interface ResultRow {
   wall_ms: number;
   agent_error: string | null;
   infra_error: string | null;
+  tool_calls: number | null;
+  tui_use_calls: number | null;
   transcript: string;
 }
 
@@ -114,6 +119,8 @@ async function runOne(job: Job, options: RunOptions, transcripts: string): Promi
     wall_ms: 0,
     agent_error: null,
     infra_error: null,
+    tool_calls: null,
+    tui_use_calls: null,
     transcript,
   };
   const env = { HOME: "/home/agent", ...QUIET_ENV };
@@ -130,6 +137,7 @@ async function runOne(job: Job, options: RunOptions, transcripts: string): Promi
     });
     if (setup.code !== 0) throw new Error(`setup failed: ${setup.stderr.trim().slice(-500)}`);
     await adapter.prepare(c, job.condition);
+    const baseline = (await c.exec(["pgrep", "-u", "agent"])).stdout.split(/\s+/).filter(Boolean);
     row.cli_version = (
       await c.exec([adapter.command("", "")[0] as string, "--version"], {
         user: "agent",
@@ -148,7 +156,7 @@ async function runOne(job: Job, options: RunOptions, transcripts: string): Promi
     row.wall_ms = Date.now() - start;
     row.timed_out = agent.timedOut;
     writeFileSync(transcript, `${agent.stdout}\n--- stderr ---\n${agent.stderr}`);
-    await c.exec(["pkill", "-KILL", "-u", "agent"]);
+    await c.exec(["bash", "-c", KILL_NEW_AGENT_PROCESSES, "bash", baseline.join(" ")]);
 
     const metrics = adapter.parse(agent.stdout, agent.stderr);
     row.turns = metrics.turns;
@@ -156,6 +164,8 @@ async function runOne(job: Job, options: RunOptions, transcripts: string): Promi
     row.output_tokens = metrics.outputTokens;
     row.cost_usd = metrics.costUsd;
     row.agent_error = metrics.agentError;
+    row.tool_calls = metrics.toolCalls;
+    row.tui_use_calls = metrics.tuiUseCalls;
     if (metrics.apiError) throw new Error(`api: ${metrics.agentError}`);
     if (!agent.timedOut) {
       const check = await c.exec(["bash", `/bench/tasks/${job.task.id}/check.sh`], {

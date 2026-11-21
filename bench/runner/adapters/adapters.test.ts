@@ -16,6 +16,8 @@ describe("claude-code adapter", () => {
       costUsd: 0.0042964200000000004,
       agentError: null,
       apiError: false,
+      toolCalls: null,
+      tuiUseCalls: null,
     });
   });
 
@@ -57,6 +59,8 @@ describe("gemini adapter", () => {
       costUsd: null,
       agentError: null,
       apiError: false,
+      toolCalls: 1,
+      tuiUseCalls: null,
     });
   });
 
@@ -74,6 +78,8 @@ describe("opencode adapter", () => {
       costUsd: 0.003,
       agentError: null,
       apiError: false,
+      toolCalls: 1,
+      tuiUseCalls: 0,
     });
   });
 
@@ -121,5 +127,24 @@ describe("API failures", () => {
     expect(gemini.parse('{"error": {"type": "QuotaError", "message": "quota"}}').apiError).toBe(
       true,
     );
+  });
+});
+
+describe("tool counts", () => {
+  it("counts claude tool calls from stream-json and the tui-use ones", () => {
+    const lines = [
+      { type: "system", subtype: "init" },
+      { type: "assistant", message: { content: [{ type: "tool_use", name: "Bash" }] } },
+      {
+        type: "assistant",
+        message: {
+          content: [{ type: "tool_use", name: "mcp__tui-use__tui_start" }, { type: "text" }],
+        },
+      },
+      { type: "result", num_turns: 3, usage: { output_tokens: 1 } },
+    ]
+      .map((l) => JSON.stringify(l))
+      .join("\n");
+    expect(claudeCode.parse(lines)).toMatchObject({ turns: 3, toolCalls: 2, tuiUseCalls: 1 });
   });
 });

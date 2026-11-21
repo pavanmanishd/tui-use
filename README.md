@@ -221,7 +221,16 @@ tui-use replay ~/.local/share/tui-use/recordings/20261121-101500-s1.cast
 
 TUI-Bench is 40 interactive tasks (editors, git, prompts, REPLs, full-screen apps, ssh and pickers), each in a Docker container with a scripted checker. It runs real agent CLIs (Claude Code, Gemini CLI and OpenCode) with the shell tool only, then with tui-use added, and reports success rate, turns, tokens and wall time. See [bench/README.md](bench/README.md) to reproduce it.
 
-Results will be published here after the first full run.
+The full run (all 40 tasks, three CLIs, three repeats) hasn't happened yet. A first smoke run with Claude Code on six tasks, one repeat each, gave:
+
+| Model | Shell only | With tui-use | Median turns (shell / tui-use) | Median tokens (shell / tui-use) |
+|---|---|---|---|---|
+| claude-opus-5-5 | 6/6 | 6/6 | 3 / 7 | 64k / 133k |
+| claude-haiku-5-5 | 6/6 | 6/6 | 4 / 6 | 90k / 130k |
+
+Tasks: `rebase-squash-3`, `python-multistep`, `fzf-pick`, `htop-kill`, `ssh-password-edit-restart`, `vim-recover-swap`.
+
+With only a shell, Claude Code still finished every task. For htop and the ssh password prompt it wrote its own Python `pty.fork()` driver, a one-off version of what tui-use provides. With tui-use available it used it in 6 of 12 runs and took more turns. So on tasks like these, a frontier model with Python at hand doesn't fail without tui-use; it improvises. Whether weaker models fail, and whether tui-use saves effort on longer interactive work, is what the full run across all three CLIs is for. Raw rows are in [bench/results/smoke-2026-11-22](bench/results/smoke-2026-11-22).
 
 ## Compared with other tools
 

@@ -9,6 +9,8 @@ export interface Metrics {
   costUsd: number | null;
   agentError: string | null;
   apiError: boolean;
+  toolCalls: number | null;
+  tuiUseCalls: number | null;
 }
 
 export interface Adapter {
@@ -28,4 +30,6 @@ export const empty: Metrics = {
   costUsd: null,
   agentError: null,
   apiError: false,
+  toolCalls: null,
+  tuiUseCalls: null,
 };

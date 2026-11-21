@@ -7,7 +7,7 @@ Each task runs twice in a fresh Docker container:
 - **shell**: the agent has only its own shell tool. tui-use is not installed and no MCP server is configured.
 - **tui-use**: the same image with tui-use installed and registered as an MCP server.
 
-The prompt, image contents and checker are the same in both conditions. A run passes when the task's checker accepts the final state of the container. Before the checker runs, every process of the agent user is killed, in both conditions, so leftover editors and sessions can't change the result. Runs that take longer than 10 minutes are stopped and count as failures. Runs that fail for infrastructure reasons (Docker, a broken setup) are recorded with `infra_error` and left out of the report.
+The prompt, image contents and checker are the same in both conditions. A run passes when the task's checker accepts the final state of the container. Before the checker runs, every process the agent user started during the run is killed, in both conditions, so leftover editors and sessions can't change the result. Processes the task's setup started are left alone. Runs that take longer than 10 minutes are stopped and count as failures. Runs that fail for infrastructure reasons (Docker, a broken setup) are recorded with `infra_error` and left out of the report.
 
 ## Agents
 

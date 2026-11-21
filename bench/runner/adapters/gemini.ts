@@ -1,5 +1,10 @@
 import { type Adapter, empty, type Metrics, TUI_USE_SERVER } from "./types.js";
 
+interface ToolStats {
+  totalCalls?: number;
+  byName?: Record<string, { count?: number }>;
+}
+
 interface ModelStats {
   api?: { totalRequests?: number };
   tokens?: { prompt?: number; candidates?: number; thoughts?: number };
@@ -17,7 +22,7 @@ export const gemini: Adapter = {
   },
   parse(stdout, stderr = ""): Metrics {
     let parsed: {
-      stats?: { models?: Record<string, ModelStats> };
+      stats?: { models?: Record<string, ModelStats>; tools?: ToolStats };
       error?: { message?: string; type?: string };
     } = {};
     for (const text of [stdout, stderr]) {
@@ -47,6 +52,12 @@ export const gemini: Adapter = {
       costUsd: null,
       agentError: parsed.error?.message ?? null,
       apiError: /api|auth|quota/i.test(parsed.error?.type ?? ""),
+      toolCalls: parsed.stats?.tools?.totalCalls ?? null,
+      tuiUseCalls: parsed.stats?.tools?.byName
+        ? Object.entries(parsed.stats.tools.byName)
+            .filter(([name]) => name.includes("tui_"))
+            .reduce((n, [, t]) => n + (t.count ?? 0), 0)
+        : null,
     };
   },
 };

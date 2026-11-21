@@ -44,6 +44,9 @@ export const opencode: Adapter = {
       .filter((e) => e.type === "step_finish")
       .map((e) => e.part ?? {});
     const error = events.find((e) => e.type === "error");
+    const tools: string[] = events
+      .filter((e) => e.type === "tool_use")
+      .map((e) => String(e.part?.tool ?? ""));
     const apiError = /Auth|API|RateLimit/i.test(String(error?.error?.name ?? ""));
     if (steps.length === 0) {
       return { ...empty, agentError: error ? JSON.stringify(error.error) : "no steps", apiError };
@@ -60,6 +63,8 @@ export const opencode: Adapter = {
       costUsd: sum((s) => s.cost),
       agentError: error ? JSON.stringify(error.error) : null,
       apiError,
+      toolCalls: tools.length,
+      tuiUseCalls: tools.filter((t) => t.includes("tui_")).length,
     };
   },
 };
