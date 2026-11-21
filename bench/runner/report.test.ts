@@ -19,6 +19,7 @@ const row = (over: Partial<ResultRow>): ResultRow => ({
   cost_usd: 0.1,
   wall_ms: 60_000,
   agent_error: null,
+  infra_error: null,
   transcript: "x",
   ...over,
 });
@@ -39,5 +40,15 @@ describe("report", () => {
   it("shows a dash when a CLI reports no tokens", () => {
     const md = report([row({ input_tokens: null, output_tokens: null, condition: "tui-use" })]);
     expect(md).toContain("– / –");
+  });
+});
+
+describe("report edge cases", () => {
+  it("leaves out runs with infrastructure errors and handles none left", () => {
+    expect(report([row({ infra_error: "setup failed" })])).toBe(
+      "no completed runs (1 hit infrastructure errors)",
+    );
+    const md = report([row({}), row({ infra_error: "docker" })]);
+    expect(md).toContain("1 runs with infrastructure errors are left out.");
   });
 });

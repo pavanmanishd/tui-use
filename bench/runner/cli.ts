@@ -15,7 +15,7 @@ const TASKS = join(ROOT, "bench", "tasks");
 const USAGE = `usage:
   tsx bench/runner/cli.ts build-images
   tsx bench/runner/cli.ts selftest [--task ID]... [--jobs 4]
-  tsx bench/runner/cli.ts run [--task ID]... [--cli NAME]... [--repeats 3] [--jobs 4] [--condition shell|tui-use]
+  tsx bench/runner/cli.ts run [--task ID]... [--cli NAME]... [--repeats 3] [--jobs 4] [--condition shell|tui-use] [--shard 1/4]
   tsx bench/runner/cli.ts report <results-dir>`;
 
 async function main(argv: string[]): Promise<number> {
@@ -29,16 +29,34 @@ async function main(argv: string[]): Promise<number> {
       condition: { type: "string", multiple: true },
       repeats: { type: "string", default: "3" },
       jobs: { type: "string", default: "4" },
+      shard: { type: "string" },
     },
   });
   const jobs = Number(values.jobs);
+  const repeats = Number(values.repeats);
+  if (!(Number.isInteger(jobs) && jobs > 0 && Number.isInteger(repeats) && repeats > 0)) {
+    console.error("--jobs and --repeats must be positive integers");
+    return 2;
+  }
+  const conditions = (values.condition ?? ["shell", "tui-use"]) as Condition[];
+  if (conditions.some((c) => c !== "shell" && c !== "tui-use")) {
+    console.error("--condition must be shell or tui-use");
+    return 2;
+  }
+  const shard = /^(\d+)\/(\d+)$/.exec(values.shard ?? "1/1");
+  const [index, count] = [Number(shard?.[1]), Number(shard?.[2])];
+  if (!shard || index < 1 || index > count) {
+    console.error("--shard must look like 2/4");
+    return 2;
+  }
+  const tasks = () => loadTasks(TASKS, values.task).filter((_, i) => i % count === index - 1);
 
   switch (command) {
     case "build-images":
       await buildImages(ROOT);
       return 0;
     case "selftest": {
-      const results = await selftest(loadTasks(TASKS, values.task), TASKS, jobs);
+      const results = await selftest(tasks(), TASKS, jobs);
       for (const r of results)
         console.log(`${r.ok ? "ok  " : "FAIL"} ${r.task}${r.problem ? `\n     ${r.problem}` : ""}`);
       const failed = results.filter((r) => !r.ok).length;
@@ -55,11 +73,11 @@ async function main(argv: string[]): Promise<number> {
         runId,
         outDir,
         tasksDir: TASKS,
-        tasks: loadTasks(TASKS, values.task),
+        tasks: tasks(),
         matrix: values.cli?.length ? matrix.filter((m) => values.cli?.includes(m.cli)) : matrix,
-        repeats: Number(values.repeats),
+        repeats,
         jobs,
-        conditions: (values.condition as Condition[] | undefined) ?? ["shell", "tui-use"],
+        conditions,
       });
       const md = report(rows);
       writeFileSync(join(outDir, "report.md"), `${md}\n`);

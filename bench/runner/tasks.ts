@@ -17,7 +17,6 @@ export interface Task {
   id: string;
   category: Category;
   prompt: string;
-  dir: string;
 }
 
 const FILES = ["task.md", "setup.sh", "check.sh", "solve.sh"];
@@ -42,7 +41,7 @@ export function loadTask(dir: string, id: string): Task {
       throw new Error(`${id}/${file} is not executable`);
     }
   }
-  return { id, dir: path, ...parseTaskMd(readFileSync(join(path, "task.md"), "utf8"), id) };
+  return { id, ...parseTaskMd(readFileSync(join(path, "task.md"), "utf8"), id) };
 }
 
 export function loadTasks(dir: string, only?: string[]): Task[] {

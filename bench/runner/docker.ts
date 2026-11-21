@@ -43,10 +43,15 @@ export async function must(argv: string[]): Promise<string> {
 }
 
 export interface Container {
-  name: string;
   exec(
     cmd: string[],
-    options?: { user?: string; env?: Record<string, string>; timeoutMs?: number; input?: string },
+    options?: {
+      user?: string;
+      env?: Record<string, string>;
+      passEnv?: string[];
+      timeoutMs?: number;
+      input?: string;
+    },
   ): Promise<ExecResult>;
   write(path: string, content: string, user?: string): Promise<void>;
   remove(): Promise<void>;
@@ -69,10 +74,10 @@ export async function startContainer(
     image,
   ]);
   const container: Container = {
-    name,
     exec(cmd, options = {}) {
       const argv = ["docker", "exec", "-i", "-u", options.user ?? "root", "-w", "/home/agent/work"];
       for (const [k, v] of Object.entries(options.env ?? {})) argv.push("-e", `${k}=${v}`);
+      for (const k of options.passEnv ?? []) argv.push("-e", k);
       argv.push(name, ...cmd);
       return sh(argv, { timeoutMs: options.timeoutMs, input: options.input });
     },

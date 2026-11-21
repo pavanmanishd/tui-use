@@ -7,7 +7,7 @@ Each task runs twice in a fresh Docker container:
 - **shell**: the agent has only its own shell tool. tui-use is not installed and no MCP server is configured.
 - **tui-use**: the same image with tui-use installed and registered as an MCP server.
 
-The prompt, image contents and checker are the same in both conditions. A run passes when the task's checker accepts the final state of the container. Runs that take longer than 10 minutes are stopped and count as failures.
+The prompt, image contents and checker are the same in both conditions. A run passes when the task's checker accepts the final state of the container. Before the checker runs, every process of the agent user is killed, in both conditions, so leftover editors and sessions can't change the result. Runs that take longer than 10 minutes are stopped and count as failures. Runs that fail for infrastructure reasons (Docker, a broken setup) are recorded with `infra_error` and left out of the report.
 
 ## Agents
 
@@ -33,7 +33,7 @@ npx tsx bench/runner/cli.ts run --cli claude-code --repeats 3 --jobs 4
 npx tsx bench/runner/cli.ts report bench/results/<run-id>
 ```
 
-`run` accepts `--task ID` and `--cli NAME` (both repeatable) and `--condition shell|tui-use`. Results go to `bench/results/<run-id>/results.jsonl`, one line per run, with the transcript of each run under `transcripts/`. `report.md` holds the summary table.
+`run` accepts `--task ID` and `--cli NAME` (both repeatable), `--condition shell|tui-use`, and `--shard 2/4` to run every fourth task so a run can be split across machines. The `bench` GitHub workflow runs one job per CLI and shard and uploads each job's results; combine the `results.jsonl` files and run `report` on the combined directory. Results go to `bench/results/<run-id>/results.jsonl`, one line per run, with the transcript of each run under `transcripts/`. `report.md` holds the summary table.
 
 A full run is 40 tasks, five CLI and model pairs, two conditions and three repeats: 1,200 agent runs. Expect it to cost real money.
 

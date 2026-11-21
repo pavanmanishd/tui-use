@@ -15,16 +15,29 @@ export const gemini: Adapter = {
   command(prompt, model) {
     return ["gemini", "-p", prompt, "-o", "json", "--yolo", "-m", model];
   },
-  parse(stdout): Metrics {
-    const start = stdout.indexOf("{");
-    let parsed: { stats?: { models?: Record<string, ModelStats> }; error?: { message?: string } };
-    try {
-      parsed = JSON.parse(stdout.slice(start));
-    } catch {
-      return { ...empty, agentError: "gemini printed no JSON result" };
+  parse(stdout, stderr = ""): Metrics {
+    let parsed: {
+      stats?: { models?: Record<string, ModelStats> };
+      error?: { message?: string; type?: string };
+    } = {};
+    for (const text of [stdout, stderr]) {
+      const start = text.search(/^\{/m);
+      if (start === -1) continue;
+      try {
+        parsed = JSON.parse(text.slice(start));
+        break;
+      } catch {}
     }
+    if (!parsed.stats && !parsed.error)
+      return { ...empty, agentError: "gemini printed no JSON result" };
     const models = Object.values(parsed.stats?.models ?? {});
-    if (models.length === 0) return { ...empty, agentError: parsed.error?.message ?? "no stats" };
+    if (models.length === 0) {
+      return {
+        ...empty,
+        agentError: parsed.error?.message ?? "no stats",
+        apiError: /api|auth|quota/i.test(parsed.error?.type ?? ""),
+      };
+    }
     const sum = (f: (m: ModelStats) => number | undefined) =>
       models.reduce((n, m) => n + (f(m) ?? 0), 0);
     return {
@@ -33,6 +46,7 @@ export const gemini: Adapter = {
       outputTokens: sum((m) => (m.tokens?.candidates ?? 0) + (m.tokens?.thoughts ?? 0)),
       costUsd: null,
       agentError: parsed.error?.message ?? null,
+      apiError: /api|auth|quota/i.test(parsed.error?.type ?? ""),
     };
   },
 };

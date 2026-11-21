@@ -14,7 +14,7 @@ async function phase(
   solve: boolean,
 ): Promise<{ code: number; log: string }> {
   const name = `tui-bench-selftest-${task.id}-${solve ? "solve" : "plain"}-${process.pid}`;
-  const c = await startContainer(IMAGES["tui-use"], name, tasksDir);
+  const c = await startContainer(IMAGES[solve ? "tui-use" : "shell"], name, tasksDir);
   try {
     const setup = await c.exec(["bash", `/bench/tasks/${task.id}/setup.sh`], {
       timeoutMs: 180_000,

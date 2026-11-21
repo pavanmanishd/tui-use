@@ -19,6 +19,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci && npm run build && npm pack
+      - run: npm ci && npm pack
       - run: npx tsx bench/runner/cli.ts build-images
       - run: npx tsx bench/runner/cli.ts selftest

@@ -15,6 +15,7 @@ describe("claude-code adapter", () => {
       outputTokens: 73,
       costUsd: 0.0042964200000000004,
       agentError: null,
+      apiError: false,
     });
   });
 
@@ -55,6 +56,7 @@ describe("gemini adapter", () => {
       outputTokens: 20 + 154 + 10 + 30,
       costUsd: null,
       agentError: null,
+      apiError: false,
     });
   });
 
@@ -71,6 +73,7 @@ describe("opencode adapter", () => {
       outputTokens: 52,
       costUsd: 0.003,
       agentError: null,
+      apiError: false,
     });
   });
 
@@ -81,5 +84,42 @@ describe("opencode adapter", () => {
 
   it("routes models through OpenRouter", () => {
     expect(opencode.command("p", "qwen/qwen3-coder")).toContain("openrouter/qwen/qwen3-coder");
+  });
+});
+
+describe("parser edge cases", () => {
+  it("returns null tokens when claude reports no usage", () => {
+    expect(
+      claudeCode.parse(JSON.stringify({ type: "result", num_turns: 2 })).inputTokens,
+    ).toBeNull();
+  });
+
+  it("finds gemini JSON after a log line containing braces, or on stderr", () => {
+    const json = readFileSync(new URL("../fixtures/gemini.json", import.meta.url), "utf8");
+    expect(gemini.parse(`config {x}\n${json}`).turns).toBe(3);
+    expect(gemini.parse("", `{"error": {"message": "quota"}}`).agentError).toBe("quota");
+  });
+});
+
+describe("API failures", () => {
+  it("flags a claude API error", () => {
+    const r = JSON.stringify({
+      type: "result",
+      is_error: true,
+      subtype: "success",
+      terminal_reason: "api_error",
+    });
+    expect(claudeCode.parse(r)).toMatchObject({ agentError: "api_error", apiError: true });
+  });
+
+  it("flags an opencode auth error", () => {
+    const line = JSON.stringify({ type: "error", error: { name: "ProviderAuthError" } });
+    expect(opencode.parse(line).apiError).toBe(true);
+  });
+
+  it("flags a gemini quota error", () => {
+    expect(gemini.parse('{"error": {"type": "QuotaError", "message": "quota"}}').apiError).toBe(
+      true,
+    );
   });
 });

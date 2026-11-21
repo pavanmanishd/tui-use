@@ -44,8 +44,9 @@ export const opencode: Adapter = {
       .filter((e) => e.type === "step_finish")
       .map((e) => e.part ?? {});
     const error = events.find((e) => e.type === "error");
+    const apiError = /Auth|API|RateLimit/i.test(String(error?.error?.name ?? ""));
     if (steps.length === 0) {
-      return { ...empty, agentError: error ? JSON.stringify(error.error) : "no steps" };
+      return { ...empty, agentError: error ? JSON.stringify(error.error) : "no steps", apiError };
     }
     const sum = (f: (s: StepFinish) => number | undefined) =>
       steps.reduce((n, s) => n + (f(s) ?? 0), 0);
@@ -58,6 +59,7 @@ export const opencode: Adapter = {
       outputTokens: sum((s) => (s.tokens?.output ?? 0) + (s.tokens?.reasoning ?? 0)),
       costUsd: sum((s) => s.cost),
       agentError: error ? JSON.stringify(error.error) : null,
+      apiError,
     };
   },
 };

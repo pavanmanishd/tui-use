@@ -29,7 +29,9 @@ function groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {
   return out;
 }
 
-export function report(rows: ResultRow[]): string {
+export function report(all: ResultRow[]): string {
+  const rows = all.filter((r) => !r.infra_error);
+  if (rows.length === 0) return `no completed runs (${all.length} hit infrastructure errors)`;
   const lines = [
     "| CLI | Model | Shell only | With tui-use | Median turns (shell / tui-use) | Median tokens (shell / tui-use) | Median wall time s (shell / tui-use) |",
     "|---|---|---|---|---|---|---|",
@@ -51,6 +53,10 @@ export function report(rows: ResultRow[]): string {
   }
   const tasks = new Set(rows.map((r) => r.task)).size;
   const repeats = Math.max(...rows.map((r) => r.repeat));
-  lines.push("", `${rows.length} runs over ${tasks} tasks, ${repeats} repeats per cell.`);
+  const skipped = all.length - rows.length;
+  lines.push(
+    "",
+    `${rows.length} runs over ${tasks} tasks, ${repeats} repeats per cell. Medians cover all runs, passed or failed.${skipped ? ` ${skipped} runs with infrastructure errors are left out.` : ""}`,
+  );
   return lines.join("\n");
 }

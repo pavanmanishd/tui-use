@@ -34,16 +34,20 @@ export const claudeCode: Adapter = {
     const events = Array.isArray(parsed) ? parsed : [parsed];
     const result = events.find((e) => e?.type === "result");
     if (!result) return { ...empty, agentError: "claude printed no result event" };
-    const u = result.usage ?? {};
+    const u = result.usage;
     return {
       turns: result.num_turns ?? null,
-      inputTokens:
-        (u.input_tokens ?? 0) +
-        (u.cache_creation_input_tokens ?? 0) +
-        (u.cache_read_input_tokens ?? 0),
-      outputTokens: u.output_tokens ?? null,
+      inputTokens: u
+        ? (u.input_tokens ?? 0) +
+          (u.cache_creation_input_tokens ?? 0) +
+          (u.cache_read_input_tokens ?? 0)
+        : null,
+      outputTokens: u?.output_tokens ?? null,
       costUsd: result.total_cost_usd ?? null,
-      agentError: result.is_error ? String(result.subtype ?? "error") : null,
+      agentError: result.is_error
+        ? String(result.terminal_reason ?? result.subtype ?? "error")
+        : null,
+      apiError: result.terminal_reason === "api_error" || result.api_error_status != null,
     };
   },
 };

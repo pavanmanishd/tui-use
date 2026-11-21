@@ -1,4 +1,4 @@
-import { copyFileSync, readdirSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { must } from "./docker.js";
 
@@ -8,8 +8,10 @@ export async function buildImages(root: string): Promise<void> {
   const images = join(root, "bench", "images");
   console.log("building tui-bench-base");
   await must(["docker", "build", "-t", IMAGES.shell, join(images, "base")]);
-  const tarball = readdirSync(root).find((f) => /^pavanmanishd-tui-use-.*\.tgz$/.test(f));
-  if (!tarball) throw new Error("run npm pack in the repository root first");
+  const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const tarball = `pavanmanishd-tui-use-${version}.tgz`;
+  if (!existsSync(join(root, tarball)))
+    throw new Error(`run npm pack in the repository root first (${tarball} not found)`);
   const target = join(images, "with-tui-use", "tui-use.tgz");
   copyFileSync(join(root, tarball), target);
   try {

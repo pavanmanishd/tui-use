@@ -8,6 +8,7 @@ export interface Metrics {
   outputTokens: number | null;
   costUsd: number | null;
   agentError: string | null;
+  apiError: boolean;
 }
 
 export interface Adapter {
@@ -15,7 +16,7 @@ export interface Adapter {
   keyEnv: string;
   prepare(container: Container, condition: Condition): Promise<void>;
   command(prompt: string, model: string): string[];
-  parse(stdout: string): Metrics;
+  parse(stdout: string, stderr?: string): Metrics;
 }
 
 export const TUI_USE_SERVER = { command: "tui-use", args: ["mcp"] };
@@ -26,4 +27,5 @@ export const empty: Metrics = {
   outputTokens: null,
   costUsd: null,
   agentError: null,
+  apiError: false,
 };
