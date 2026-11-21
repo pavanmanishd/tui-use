@@ -1,3 +1,5 @@
+import { writeFileSync } from "node:fs";
+import { resolve as resolvePath } from "node:path";
 import { parseArgs } from "node:util";
 import { DaemonClient, resolveCwd, resolveSecret, startRequestEnv } from "../daemon/client.js";
 import type { Params, ScreenResult } from "../daemon/protocol.js";
@@ -41,6 +43,7 @@ export const USAGE: Record<string, string> = {
     "tui-use start <command> [--name N] [--cwd DIR] [--cols 120] [--rows 40] [--env K=V]... [--until-text T | --until-regex R | --until-gone T | --until-idle MS | --until-exit] [--timeout MS] [--json]",
   send: "tui-use send <session> [--text T] [--paste] [--secret-env VAR] [--key K]... [--input TOKEN...] [--full] [--styles none] [--until-text T ...] [--timeout MS] [--json]",
   snapshot: "tui-use snapshot <session> [--diff] [--styles none] [--json]",
+  screenshot: "tui-use screenshot <session> [--out FILE.png]",
   wait: "tui-use wait <session> [--text T] [--regex R] [--gone T] [--idle MS] [--exit] [--timeout MS] [--full] [--json]",
   scrollback: "tui-use scrollback <session> [--lines=FROM:TO | --search TEXT] [--json]",
   list: "tui-use list [--json]",
@@ -281,6 +284,21 @@ async function runCommand(
           styles: styles(values.styles, command),
         });
         return screenOutput(result, undefined);
+      } finally {
+        client.close();
+      }
+    }
+    case "screenshot": {
+      const { values, positionals } = parse(command, args, { out: { type: "string" }, ...json });
+      const [session] = need(positionals, 1, command);
+      const client = await connect();
+      try {
+        const result = await client.request<{ session: string; png: string }>("screenshot", {
+          session: session as string,
+        });
+        const out = resolvePath((values.out as string | undefined) ?? `${result.session}.png`);
+        writeFileSync(out, Buffer.from(result.png, "base64"));
+        return { text: out, json: { session: result.session, path: out }, code: EXIT.ok };
       } finally {
         client.close();
       }

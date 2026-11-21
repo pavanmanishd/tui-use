@@ -60,6 +60,7 @@ export const methods = {
   snapshot: z
     .object({ session, mode: mode.default("full"), styles: styles.default("marks") })
     .strict(),
+  screenshot: z.object({ session }).strict(),
   wait: z
     .object({
       session,

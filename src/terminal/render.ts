@@ -34,13 +34,13 @@ function effectiveBackground(cell: {
     : `bg:${cell.getBgColorMode()}:${cell.getBgColor()}`;
 }
 
-interface Row {
+export interface Row {
   tokens: Token[];
   backgrounds: string[];
   wrapped: boolean;
 }
 
-function rowTokens(emu: Emulator, y: number): Row {
+export function rowTokens(emu: Emulator, y: number): Row {
   const buffer = emu.term.buffer.active;
   const line = buffer.getLine(buffer.baseY + y);
   const tokens: Token[] = [];
@@ -56,7 +56,10 @@ function rowTokens(emu: Emulator, y: number): Row {
   return { tokens, backgrounds, wrapped: line.isWrapped };
 }
 
-function redactRows(rows: Row[], secretRanges: (text: string) => Array<[number, number]>): void {
+export function redactRows(
+  rows: Row[],
+  secretRanges: (text: string) => Array<[number, number]>,
+): void {
   let start = 0;
   while (start < rows.length) {
     let end = start + 1;
@@ -97,15 +100,15 @@ function escapeMarks(text: string): string {
   return text.replace(/[«»‹›]/g, (c) => `\\${c}`);
 }
 
-const CM_P16 = 0x1000000;
-const CM_P256 = 0x2000000;
-const CM_RGB = 0x3000000;
+export const CM_P16 = 0x1000000;
+export const CM_P256 = 0x2000000;
+export const CM_RGB = 0x3000000;
 const ANSI16 = [
   0x000000, 0xcd0000, 0x00cd00, 0xcdcd00, 0x0000ee, 0xcd00cd, 0x00cdcd, 0xe5e5e5, 0x7f7f7f,
   0xff0000, 0x00ff00, 0xffff00, 0x5c5cff, 0xff00ff, 0x00ffff, 0xffffff,
 ];
 
-function paletteRgb(index: number): number {
+export function paletteRgb(index: number): number {
   if (index < 16) return ANSI16[index] as number;
   if (index < 232) {
     const steps = [0, 95, 135, 175, 215, 255];

@@ -99,11 +99,13 @@ export const tools = {
     },
   },
   tui_snapshot: {
-    description: "Return the current screen of a session without sending input.",
+    description:
+      "Return the current screen of a session without sending input. Use image: true to also get a PNG of the screen with its colours, for when layout or colour matters more than text.",
     inputSchema: {
       session,
       mode: mode.optional().describe("Default full."),
       styles: styles.optional(),
+      image: z.boolean().optional().describe("Also return a PNG screenshot of the screen."),
     },
   },
   tui_wait: {

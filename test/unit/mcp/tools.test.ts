@@ -25,6 +25,7 @@ describe("MCP tool schemas", () => {
       ["input", "keys", "mode", "paste", "secret_env", "session", "text", "wait"].sort(),
     );
     expect(Object.keys(tools.tui_snapshot.inputSchema).sort()).toEqual([
+      "image",
       "mode",
       "session",
       "styles",

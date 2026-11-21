@@ -8,6 +8,7 @@ import { Recorder } from "../recorder/writer.js";
 import { type Frame, renderDiff } from "../terminal/diff.js";
 import { Emulator } from "../terminal/emulator.js";
 import { renderFull, renderHeader, renderScreen, type Styles } from "../terminal/render.js";
+import { renderPng } from "../terminal/screenshot.js";
 import {
   formatLines,
   type NumberedLine,
@@ -214,6 +215,14 @@ export class Session extends EventEmitter {
     this.assertRunning();
     this.lastInputAt = Date.now();
     if (data) this.pty.write(data);
+  }
+
+  async screenshot(): Promise<Buffer> {
+    await this.emulator.drained();
+    return renderPng(this.emulator, {
+      cursor: true,
+      secretRanges: (t) => this.redactor.ranges(t),
+    });
   }
 
   async snapshot(mode: SnapshotMode, styles: Styles, viewer = "default"): Promise<string> {

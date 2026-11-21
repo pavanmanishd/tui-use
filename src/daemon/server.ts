@@ -252,6 +252,11 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
         const p = parseParams("snapshot", raw);
         return screen(conn.viewer, manager.get(p.session), p.mode, p.styles);
       }
+      case "screenshot": {
+        const p = parseParams("screenshot", raw);
+        const session = manager.get(p.session);
+        return { session: session.id, png: (await session.screenshot()).toString("base64") };
+      }
       case "wait": {
         const p = parseParams("wait", raw);
         const session = manager.get(p.session);
