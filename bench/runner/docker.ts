@@ -73,6 +73,10 @@ export async function startContainer(
     `${tasksDir}:/bench/tasks:ro`,
     image,
   ]);
+  return startedContainer(name);
+}
+
+export function startedContainer(name: string): Container {
   const container: Container = {
     exec(cmd, options = {}) {
       const argv = ["docker", "exec", "-i", "-u", options.user ?? "root", "-w", "/home/agent/work"];

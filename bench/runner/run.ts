@@ -8,7 +8,7 @@ import { agentPrompt, type Task } from "./tasks.js";
 
 export const AGENT_TIMEOUT_MS = 10 * 60_000;
 
-const KILL_NEW_AGENT_PROCESSES =
+export const KILL_NEW_AGENT_PROCESSES =
   'for p in $(pgrep -u agent); do case " $1 " in *" $p "*) ;; *) kill -KILL "$p" 2>/dev/null ;; esac; done';
 
 const QUIET_ENV = {

@@ -3,9 +3,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { Condition } from "./adapters/types.js";
-import { buildImages } from "./images.js";
+import { must, startContainer, startedContainer } from "./docker.js";
+import { buildImages, IMAGES } from "./images.js";
 import { readResults, report } from "./report.js";
-import { type MatrixEntry, runBench } from "./run.js";
+import { KILL_NEW_AGENT_PROCESSES, type MatrixEntry, runBench } from "./run.js";
 import { selftest } from "./selftest.js";
 import { loadTasks } from "./tasks.js";
 
@@ -16,7 +17,9 @@ const USAGE = `usage:
   tsx bench/runner/cli.ts build-images
   tsx bench/runner/cli.ts selftest [--task ID]... [--jobs 4]
   tsx bench/runner/cli.ts run [--task ID]... [--cli NAME]... [--repeats 3] [--jobs 4] [--condition shell|tui-use] [--shard 1/4]
-  tsx bench/runner/cli.ts report <results-dir>`;
+  tsx bench/runner/cli.ts report <results-dir>
+  tsx bench/runner/cli.ts prepare <container> --task ID --condition shell|tui-use
+  tsx bench/runner/cli.ts check <container> --task ID`;
 
 async function main(argv: string[]): Promise<number> {
   const [command, ...rest] = argv;
@@ -83,6 +86,40 @@ async function main(argv: string[]): Promise<number> {
       writeFileSync(join(outDir, "report.md"), `${md}\n`);
       console.log(`\n${md}\n\nresults in ${outDir}`);
       return 0;
+    }
+    case "prepare": {
+      const [name] = positionals;
+      const [task] = values.task ?? [];
+      const condition = conditions[0];
+      if (!name || !task || conditions.length !== 1) break;
+      const c = await startContainer(IMAGES[condition as Condition], name, TASKS);
+      const setup = await c.exec(["bash", `/bench/tasks/${task}/setup.sh`], { timeoutMs: 180_000 });
+      if (setup.code !== 0) {
+        await c.remove();
+        console.error(`setup failed: ${setup.stderr}`);
+        return 1;
+      }
+      const baseline = (await c.exec(["pgrep", "-u", "agent"])).stdout.split(/\s+/).filter(Boolean);
+      await c.write("/root/.bench-baseline", baseline.join(" "), "root");
+      console.log(`${name} ready for ${task} (${condition})`);
+      return 0;
+    }
+    case "check": {
+      const [name] = positionals;
+      const [task] = values.task ?? [];
+      if (!name || !task) break;
+      const sh = (cmd: string[]) => must(["docker", "exec", name, ...cmd]).catch(() => "");
+      await sh([
+        "bash",
+        "-c",
+        `${KILL_NEW_AGENT_PROCESSES.replace("$1", "$(cat /root/.bench-baseline)")}`,
+      ]);
+      const check = await startedContainer(name).exec(["bash", `/bench/tasks/${task}/check.sh`], {
+        timeoutMs: 60_000,
+      });
+      console.log(check.code === 0 ? "pass" : "fail");
+      await must(["docker", "rm", "-f", name]);
+      return check.code === 0 ? 0 : 3;
     }
     case "report": {
       const dir = positionals[0];
