@@ -57,3 +57,10 @@ describe("blank marked runs", () => {
     expect(screen.rows.slice(0, 3)).toEqual(["  alpha", "«▌ beta»", "  gamma"]);
   });
 });
+
+describe("highlighted blank cells", () => {
+  it("keeps a highlighted blank cell inside a row", async () => {
+    const { screen } = await screenOf("[\x1b[41m \x1b[0m] Install nginx");
+    expect(screen.rows[0]).toBe("[« »] Install nginx");
+  });
+});

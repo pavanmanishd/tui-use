@@ -193,6 +193,13 @@ tui-use replay ~/.local/share/tui-use/recordings/20261121-101500-s1.cast
 - Sessions an MCP client starts are killed when that client disconnects. Another MCP client can read them but cannot type into them.
 - Every session is recorded as an asciinema v2 file under `~/.local/share/tui-use/recordings`. Recordings never contain input, and they are deleted after 7 days.
 
+## Known limitations
+
+- Highlight marks compare each cell's background with the most common one on screen. When two buttons have different colours, as in `gum confirm`, both get marked and the snapshot doesn't show which one is active. Use the program's shortcut key (for example `y` or `n`) instead.
+- Settle detection can't tell a spinner from progress. Pass a `wait` with `text`, `regex` or `gone` for slow programs.
+- Redaction matches the exact secret. A program that prints it transformed (masked, split by escape codes) is not caught.
+- No mouse input yet, and no native Windows (WSL works).
+
 ## Configuration
 
 `~/.config/tui-use/config.json`, all keys optional:

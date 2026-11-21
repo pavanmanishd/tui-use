@@ -9,7 +9,8 @@
       "!openspec",
       "!assets",
       "!test/golden/*.bytes",
-      "!test/golden/*.txt"
+      "!test/golden/*.txt",
+      "!**/*.md"
     ]
   },
   "formatter": {

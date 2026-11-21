@@ -121,6 +121,9 @@ export class Session extends EventEmitter {
       throw err;
     }
 
+    this.emulator.term.onData((reply) => {
+      if (this.running) this.pty.write(reply);
+    });
     this.pty.onData((data) => {
       this.lastOutputAt = Date.now();
       this.hasOutput = true;

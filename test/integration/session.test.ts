@@ -227,3 +227,13 @@ describe("waits after input", () => {
     });
   });
 });
+
+describe("terminal queries", () => {
+  it("answers a cursor position request", async () => {
+    const s = startSession(
+      `bash -c "printf 'abc\\e[6n'; read -rsdR reply; echo; echo got \\"\\$reply\\" | cat -v"`,
+    );
+    expect(await s.wait({ text: "got", timeout_ms: 3000 })).toMatchObject({ fired: "text" });
+    expect(await s.screenText()).toContain("got ^[[1;4");
+  });
+});

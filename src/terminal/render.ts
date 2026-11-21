@@ -146,7 +146,7 @@ function joinTokens(tokens: Token[], cursorIndex: number, marks: boolean): strin
   while (lastMarkedText > cursorIndex && blank(tokens[lastMarkedText] as Token)) {
     lastMarkedText--;
   }
-  if (marks && tokens.some((t) => !blank(t))) unmarkBlankRuns(tokens);
+  if (marks && tokens.some((t) => !blank(t))) unmarkGutter(tokens);
 
   let out = "";
   let open = false;
@@ -165,20 +165,12 @@ function joinTokens(tokens: Token[], cursorIndex: number, marks: boolean): strin
   return out;
 }
 
-function unmarkBlankRuns(tokens: Token[]): void {
-  let start = 0;
-  while (start < tokens.length) {
-    if (!(tokens[start] as Token).marked) {
-      start++;
-      continue;
-    }
-    let end = start;
-    while (end < tokens.length && (tokens[end] as Token).marked) end++;
-    const run = tokens.slice(start, end);
-    if (run.every(blank)) {
-      for (const t of run) t.marked = false;
-    }
-    start = end;
+function unmarkGutter(tokens: Token[]): void {
+  let end = 0;
+  while (end < tokens.length && (tokens[end] as Token).marked) end++;
+  const gutter = tokens.slice(0, end);
+  if (gutter.every(blank)) {
+    for (const t of gutter) t.marked = false;
   }
 }
 
