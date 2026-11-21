@@ -53,7 +53,7 @@ export const tools = {
   },
   tui_send: {
     description:
-      "Type into a session, wait for it to respond, and return the new screen (as a diff by default). The screen shows row numbers, the cursor as [x], and highlighted items as «…». text is typed first, then secret_env, then keys. Use input for interleaving, e.g. save and quit vim: input=[{key:'esc'},{text:':wq'},{key:'enter'}]. Key names: enter, tab, esc, backspace, delete, up, down, left, right, home, end, pageup, pagedown, space, f1-f12, single characters, with ctrl+/alt+/shift+ (ctrl+c, shift+tab).",
+      "Type into a session, wait for it to respond, and return the new screen (as a diff by default). The screen shows row numbers, the cursor as [x], and highlighted items as «…». text is typed first, then secret_env, then keys. Use input for interleaving, e.g. save and quit vim: input=[{key:'esc'},{text:':wq'},{key:'enter'}]. Edits that depend on where the cursor lands can go wrong when batched; prefer commands that do not (e.g. vim :2,3s/^pick/squash/) or check the screen between steps. Key names: enter, tab, esc, backspace, delete, up, down, left, right, home, end, pageup, pagedown, space, f1-f12, single characters, with ctrl+/alt+/shift+ (ctrl+c, shift+tab).",
     inputSchema: {
       session,
       text: z.string().optional().describe("Text typed literally. \\n is sent as Enter."),
