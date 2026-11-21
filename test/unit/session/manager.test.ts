@@ -116,6 +116,15 @@ describe("SessionManager", () => {
     expect(() => m.start(req("htop"), mcpA)).toThrow(/session limit reached \(1\).*s1 vim/);
   });
 
+  it("refuses a cwd that does not exist", () => {
+    expect(() => manager().start({ ...req("vim"), cwd: "/no/such/dir" }, cli)).toThrow(
+      "cwd /no/such/dir does not exist",
+    );
+    expect(() => manager().start({ ...req("vim"), cwd: "/etc/hosts" }, cli)).toThrow(
+      /not a directory/,
+    );
+  });
+
   it("refuses denied commands", () => {
     const m = manager({ deny: ["^rm -rf /"] });
     expect(() => m.start(req("rm -rf /"), cli)).toThrow(

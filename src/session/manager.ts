@@ -1,3 +1,4 @@
+import { statSync } from "node:fs";
 import { join } from "node:path";
 import type { Config } from "../daemon/config.js";
 import { recordingName } from "../recorder/writer.js";
@@ -28,6 +29,7 @@ export class SessionManager {
   }
 
   start(req: StartRequest, owner: Owner): Session {
+    assertDirectory(req.cwd);
     const denied = this.deny.find((re) => re.test(req.command));
     if (denied) throw new Error(`command refused by deny pattern ${denied}`);
 
@@ -144,4 +146,14 @@ function describe(sessions: Session[]): string {
       (s) => `${s.id}${s.name ? ` (${s.name})` : ""} ${s.command}${s.running ? "" : " [exited]"}`,
     )
     .join(", ");
+}
+
+function assertDirectory(cwd: string): void {
+  let isDir = false;
+  try {
+    isDir = statSync(cwd).isDirectory();
+  } catch {
+    throw new Error(`cwd ${cwd} does not exist`);
+  }
+  if (!isDir) throw new Error(`cwd ${cwd} is not a directory`);
 }
