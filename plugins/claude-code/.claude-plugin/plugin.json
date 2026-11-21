@@ -1,6 +1,6 @@
 {
   "name": "tui-use",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Drive interactive terminal programs (vim, git rebase -i, ssh, REPLs, htop, installers) from Claude Code.",
   "license": "Apache-2.0",
   "repository": "https://github.com/pavanmanishd/tui-use"

@@ -5,7 +5,7 @@ Let any AI agent drive interactive terminal programs: vim, `git rebase -i`, `npm
 Coding agents run shell commands one at a time, without a terminal. A command that waits for input hangs until the tool times out, a full-screen program prints escape codes, and a REPL forgets everything between turns. tui-use gives the agent a real terminal that it can read and type into across as many turns as it needs.
 
 ```
-claude mcp add tui-use -- npx -y @pavanmanishd/tui-use@1.0.0 mcp
+claude mcp add tui-use -- npx -y @pavanmanishd/tui-use@1.1.0 mcp
 ```
 
 ![Claude Code squashing three commits with git rebase -i through tui-use](assets/demo.gif)
@@ -14,7 +14,7 @@ Claude Code (Opus) squashing three commits with `git rebase -i` through tui-use.
 
 ## What the agent sees
 
-Every call that changes something returns the screen as numbered text. The cursor is shown as `[x]`, and highlighted text, such as the selected item in a menu, is wrapped in `«…»`.
+Every call that changes something returns the screen as numbered text. The cursor is shown as `[x]`, and highlighted text, such as the selected item in a menu, is wrapped in `«…»`. When a row has highlights in more than one colour, the one that stands out most keeps `«…»` and the fainter ones get `‹…›`, so in a yes/no dialog you can tell which button is active. Three or more identical rows, such as vim's `~` filler, fold into one line that keeps the row numbers.
 
 ```
 session s1 · git rebase -i HEAD~3 · 120x40 · cursor 2:1 · alt · running · idle 310ms
@@ -26,6 +26,17 @@ session s1 · git rebase -i HEAD~3 · 120x40 · cursor 2:1 · alt · running · 
  5│# Rebase 7c0e2b1..1d8c5aa onto 7c0e2b1 (3 commands)
  …
 40│"~/repo/.git/rebase-merge/git-rebase-todo" 27L, 1189C
+```
+
+```
+session s2 · vim notes.md · 120x40 · cursor 3:1 · alt · running · idle 305ms
+───
+ 1│# Notes
+ 2│
+ 3│[-] buy milk
+ 4│~
+…(rows 5-39 same as row 4)
+40│"notes.md" 3L, 24B
 ```
 
 After the first screen, `tui_send` returns only the rows that changed:
@@ -46,7 +57,7 @@ tui-use needs Node.js 22 or later on macOS or Linux. On Windows, use WSL. Prebui
 ### Claude Code
 
 ```
-claude mcp add tui-use -- npx -y @pavanmanishd/tui-use@1.0.0 mcp
+claude mcp add tui-use -- npx -y @pavanmanishd/tui-use@1.1.0 mcp
 ```
 
 The plugin adds the same server plus a skill that tells Claude when to use tui-use instead of the shell:
@@ -62,7 +73,7 @@ The plugin adds the same server plus a skill that tells Claude when to use tui-u
 ```toml
 [mcp_servers.tui-use]
 command = "npx"
-args = ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"]
+args = ["-y", "@pavanmanishd/tui-use@1.1.0", "mcp"]
 ```
 
 ### Cursor
@@ -72,7 +83,7 @@ args = ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"]
 ```json
 {
   "mcpServers": {
-    "tui-use": { "command": "npx", "args": ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"] }
+    "tui-use": { "command": "npx", "args": ["-y", "@pavanmanishd/tui-use@1.1.0", "mcp"] }
   }
 }
 ```
@@ -84,7 +95,7 @@ args = ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"]
 ```json
 {
   "mcpServers": {
-    "tui-use": { "command": "npx", "args": ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"] }
+    "tui-use": { "command": "npx", "args": ["-y", "@pavanmanishd/tui-use@1.1.0", "mcp"] }
   }
 }
 ```
@@ -99,7 +110,7 @@ args = ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"]
   "mcp": {
     "tui-use": {
       "type": "local",
-      "command": ["npx", "-y", "@pavanmanishd/tui-use@1.0.0", "mcp"],
+      "command": ["npx", "-y", "@pavanmanishd/tui-use@1.1.0", "mcp"],
       "enabled": true
     }
   }
@@ -113,7 +124,7 @@ args = ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"]
 ```json
 {
   "mcpServers": {
-    "tui-use": { "command": "npx", "args": ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"] }
+    "tui-use": { "command": "npx", "args": ["-y", "@pavanmanishd/tui-use@1.1.0", "mcp"] }
   }
 }
 ```
@@ -121,7 +132,7 @@ args = ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"]
 ### Any agent with a shell
 
 ```
-npm install -g @pavanmanishd/tui-use@1.0.0
+npm install -g @pavanmanishd/tui-use@1.1.0
 tui-use start "npm init" --name init
 tui-use send init --text "my-app" --key enter
 ```
@@ -132,7 +143,7 @@ tui-use send init --text "my-app" --key enter
 |---|---|
 | `tui_start` | Starts a program and returns its first screen. Takes `command`, `cwd`, `env`, `cols`, `rows`, `name` and `wait`. |
 | `tui_send` | Types `text`, a `secret_env` value and `keys` (or an ordered `input` list), waits, and returns the new screen as a diff by default. `paste: true` sends the text as a bracketed paste. |
-| `tui_snapshot` | Returns the screen without sending input. `styles: "none"` drops the `«…»` marks. |
+| `tui_snapshot` | Returns the screen without sending input. `styles: "none"` drops the `«…»` marks, and `image: true` adds a PNG of the screen with its colours. |
 | `tui_wait` | Waits without sending input, for builds and installs. |
 | `tui_scrollback` | Reads output that scrolled off the screen, by line range (such as `[-50, -1]`) or by `search`. |
 | `tui_manage` | Lists sessions, kills one (SIGTERM, then SIGKILL after 2 s), resizes one, or returns the path of its recording. |
@@ -143,11 +154,19 @@ Saving and quitting vim in one call:
 { "session": "s1", "input": [{ "key": "esc" }, { "text": ":wq" }, { "key": "enter" }] }
 ```
 
+Clicking and scrolling work in programs that turn on mouse input (htop, mc, lazygit and most TUI frameworks). Rows and columns are the ones shown in the snapshot:
+
+```json
+{ "session": "s1", "input": [{ "mouse": { "action": "click", "row": 12, "col": 5 } }] }
+```
+
+The actions are `click`, `double_click`, `right_click`, `middle_click`, `scroll_up` and `scroll_down`.
+
 Key names are `enter`, `tab`, `esc`, `backspace`, `delete`, `up`, `down`, `left`, `right`, `home`, `end`, `pageup`, `pagedown`, `space`, `f1` to `f12` and any single character, optionally prefixed with `ctrl+`, `alt+` or `shift+` (for example `ctrl+c` or `shift+tab`). An unknown key name is an error, never typed as text.
 
 ### Waiting
 
-By default, a call returns once the program has printed something and then stayed quiet for 300 ms with an unchanged screen, or after 5 seconds. If the program is still drawing, such as a spinner or a slow install, the response ends with a note saying so. For slow programs, pass a wait object:
+By default, a call returns once the program has printed something and then stayed quiet for 300 ms with an unchanged screen, or after 5 seconds. If only a few characters on one row keep changing, as with a spinner or a percentage, the call returns after about half a second with a note naming that row. If more of the screen is still changing at the timeout, the response ends with a note saying so. For slow programs, pass a wait object:
 
 | Field | Returns when |
 |---|---|
@@ -174,10 +193,11 @@ tui-use scrollback init --search error
 tui-use list
 tui-use kill init
 tui-use attach init
+tui-use screenshot init --out init.png
 tui-use replay ~/.local/share/tui-use/recordings/20261121-101500-s1.cast
 ```
 
-`--json` prints the raw response. Exit codes are 0 for success, 1 for a request error, 2 for a usage error and 3 when a wait times out. Quote commands that have their own flags, as in `tui-use start "git rebase -i HEAD~3"`.
+With `--input`, a token like `mouse:click:12:5` clicks at row 12, column 5. `--json` prints the raw response. Exit codes are 0 for success, 1 for a request error, 2 for a usage error and 3 when a wait times out. Quote commands that have their own flags, as in `tui-use start "git rebase -i HEAD~3"`.
 
 ## Watching or taking over
 
@@ -210,10 +230,11 @@ tui-use replay ~/.local/share/tui-use/recordings/20261121-101500-s1.cast
 
 ## Known limitations
 
-- Highlight marks compare each cell's background with the most common background on screen. When two buttons have different colours, as in `gum confirm`, both are marked and the snapshot doesn't show which one is active. Use the program's shortcut key, such as `y` or `n`, instead.
-- Settle detection can't tell a spinner from real progress. For slow programs, pass a `wait` with `text`, `regex` or `gone`.
+- Highlight strength is judged by colour contrast against the screen's main background. A program that marks its active item with a dimmer colour than the inactive ones will show them the wrong way round; `image: true` on `tui_snapshot` shows the real colours.
+- A spinner note means the call returned before the program finished. For slow programs, pass a `wait` with `text`, `regex` or `gone`.
+- Screenshots use an 8x16 bitmap font that covers Latin, box drawing and block characters. Other scripts, such as CJK, are drawn as boxes in the image; the text snapshot shows them correctly.
 - Redaction matches the exact secret. A program that prints it in altered form, such as masked or split by escape codes, is not caught.
-- There is no mouse input yet, and no native Windows support (WSL works).
+- There is no native Windows support (WSL works).
 
 ## TUI-Bench
 
@@ -250,7 +271,8 @@ Based on each project's README in November 2026.
 | Selected items marked in text | yes | not documented | not documented | no | not documented |
 | Secrets kept out of output | yes | not documented | not documented | not documented | not documented |
 | Human can watch live | yes, and type | yes, watch only | not documented | not documented | yes (tmux attach) |
-| Mouse input | not yet | yes | not documented | not documented | not documented |
+| Mouse input | yes | yes | not documented | not documented | not documented |
+| Screenshots | PNG | PNG | not documented | not documented | not documented |
 | Recordings | asciinema | not documented | not documented | not documented | not documented |
 | Benchmark | TUI-Bench | no | no | no | no |
 
@@ -262,6 +284,10 @@ npm run lint && npm run typecheck
 npm test                  # unit tests
 npm run test:integration  # real programs in real terminals; the ssh test needs Docker
 ```
+
+## Releasing
+
+Bump the version in `package.json`, `server.json` and the plugin, merge to `main`, and push a `vX.Y.Z` tag. The release workflow runs the tests, publishes to npm through trusted publishing, creates the GitHub release and updates the MCP registry entry.
 
 ## License
 
