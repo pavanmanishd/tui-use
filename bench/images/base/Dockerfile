@@ -19,11 +19,10 @@ RUN arch="$(dpkg --print-architecture)" \
     | tar xz -C /tmp && find /tmp -name gum -type f -exec mv {} /usr/local/bin/gum \; \
  && gum --version && lazygit --version
 
-RUN pip3 install --no-cache-dir --break-system-packages kconfiglib==14.1.0 questionary==2.1.0
+RUN pip3 install --no-cache-dir --break-system-packages kconfiglib==14.1.0 questionary==2.1.0 prompt_toolkit==3.0.51
 
 RUN npm install -g --no-fund --no-audit \
-      @anthropic-ai/claude-code@2.1.329 @google/gemini-cli@0.37.1 opencode-ai@1.19.6 \
- && npm cache add create-vite@6.5.0
+      @anthropic-ai/claude-code@2.1.329 @google/gemini-cli@0.37.1 opencode-ai@1.19.6
 
 COPY local-repo.sh /opt/bench/local-repo.sh
 RUN sh /opt/bench/local-repo.sh
@@ -32,7 +31,8 @@ RUN useradd -m -s /bin/bash agent \
  && echo "agent ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/agent \
  && mkdir -p /run/sshd /home/agent/work && chown agent:agent /home/agent/work \
  && git config --system user.name "Bench Agent" && git config --system user.email agent@example.com \
- && git config --system init.defaultBranch main
+ && git config --system init.defaultBranch main \
+ && su agent -c "npm cache add create-vite@6.5.0"
 
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 TERM=xterm-256color EDITOR=vim
 WORKDIR /home/agent/work

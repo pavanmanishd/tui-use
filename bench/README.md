@@ -49,3 +49,5 @@ Each task is a directory under `tasks/`:
 | `solve.sh` | agent | A reference solution driven through the `tui-use` CLI |
 
 `selftest` checks every task without an agent: right after setup the checker must fail, and after `solve.sh` it must pass. CI runs it whenever `bench/` changes.
+
+The agent user has passwordless sudo because some tasks need it (`apt`, `adduser`). Checkers keep their expected answers under `/root`, which the agent could read with sudo, so spot-check transcripts of passing runs.
