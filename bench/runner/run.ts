@@ -1,0 +1,138 @@
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { ADAPTERS } from "./adapters/index.js";
+import type { Condition } from "./adapters/types.js";
+import { pool, startContainer } from "./docker.js";
+import { IMAGES } from "./images.js";
+import { agentPrompt, type Task } from "./tasks.js";
+
+export const AGENT_TIMEOUT_MS = 10 * 60_000;
+
+export interface MatrixEntry {
+  cli: string;
+  model: string;
+}
+
+export interface ResultRow {
+  run_id: string;
+  task: string;
+  category: string;
+  cli: string;
+  cli_version: string;
+  model: string;
+  condition: Condition;
+  repeat: number;
+  success: boolean;
+  timed_out: boolean;
+  turns: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cost_usd: number | null;
+  wall_ms: number;
+  agent_error: string | null;
+  transcript: string;
+}
+
+export interface RunOptions {
+  runId: string;
+  outDir: string;
+  tasksDir: string;
+  tasks: Task[];
+  matrix: MatrixEntry[];
+  repeats: number;
+  jobs: number;
+  conditions: Condition[];
+}
+
+interface Job {
+  task: Task;
+  entry: MatrixEntry;
+  condition: Condition;
+  repeat: number;
+}
+
+export async function runBench(options: RunOptions): Promise<ResultRow[]> {
+  for (const entry of options.matrix) {
+    const adapter = ADAPTERS[entry.cli];
+    if (!adapter)
+      throw new Error(`unknown cli ${entry.cli}; known: ${Object.keys(ADAPTERS).join(", ")}`);
+    if (!process.env[adapter.keyEnv])
+      throw new Error(`${entry.cli} needs ${adapter.keyEnv} in the environment`);
+  }
+  const transcripts = join(options.outDir, "transcripts");
+  mkdirSync(transcripts, { recursive: true });
+  const resultsPath = join(options.outDir, "results.jsonl");
+
+  const jobs: Job[] = [];
+  for (const task of options.tasks) {
+    for (const entry of options.matrix) {
+      for (const condition of options.conditions) {
+        for (let repeat = 1; repeat <= options.repeats; repeat++)
+          jobs.push({ task, entry, condition, repeat });
+      }
+    }
+  }
+  console.log(`${jobs.length} runs, ${options.jobs} at a time`);
+
+  return pool(jobs, options.jobs, async (job) => {
+    const row = await runOne(job, options, transcripts);
+    appendFileSync(resultsPath, `${JSON.stringify(row)}\n`);
+    console.log(
+      `${row.success ? "pass" : "FAIL"} ${row.task} ${row.cli}/${row.model} ${row.condition} #${row.repeat} ${Math.round(row.wall_ms / 1000)}s`,
+    );
+    return row;
+  });
+}
+
+async function runOne(job: Job, options: RunOptions, transcripts: string): Promise<ResultRow> {
+  const adapter = ADAPTERS[job.entry.cli] as (typeof ADAPTERS)[string];
+  const slug = `${job.task.id}-${job.entry.cli}-${job.entry.model.replace(/[^a-z0-9.-]/gi, "_")}-${job.condition}-${job.repeat}`;
+  const name = `tui-bench-${options.runId}-${slug}`.slice(0, 120);
+  const c = await startContainer(IMAGES[job.condition], name, options.tasksDir);
+  const transcript = join(transcripts, `${slug}.txt`);
+  try {
+    const setup = await c.exec(["bash", `/bench/tasks/${job.task.id}/setup.sh`], {
+      timeoutMs: 180_000,
+    });
+    if (setup.code !== 0) throw new Error(`setup failed for ${job.task.id}: ${setup.stderr}`);
+    await adapter.prepare(c, job.condition);
+    const version = (
+      await c.exec([adapter.command("", "")[0] as string, "--version"], { user: "agent" })
+    ).stdout.trim();
+
+    const start = Date.now();
+    const agent = await c.exec(adapter.command(agentPrompt(job.task), job.entry.model), {
+      user: "agent",
+      env: { [adapter.keyEnv]: process.env[adapter.keyEnv] as string, HOME: "/home/agent" },
+      timeoutMs: AGENT_TIMEOUT_MS,
+    });
+    const wall = Date.now() - start;
+    writeFileSync(transcript, `${agent.stdout}\n--- stderr ---\n${agent.stderr}`);
+
+    const check = await c.exec(["bash", `/bench/tasks/${job.task.id}/check.sh`], {
+      timeoutMs: 60_000,
+    });
+    const metrics = adapter.parse(agent.stdout);
+    return {
+      run_id: options.runId,
+      task: job.task.id,
+      category: job.task.category,
+      cli: job.entry.cli,
+      cli_version: version,
+      model: job.entry.model,
+      condition: job.condition,
+      repeat: job.repeat,
+      success: !agent.timedOut && check.code === 0,
+      timed_out: agent.timedOut,
+      turns: metrics.turns,
+      input_tokens: metrics.inputTokens,
+      output_tokens: metrics.outputTokens,
+      cost_usd: metrics.costUsd,
+      wall_ms: wall,
+      agent_error: metrics.agentError,
+      transcript,
+    };
+  } finally {
+    await c.remove();
+  }
+}

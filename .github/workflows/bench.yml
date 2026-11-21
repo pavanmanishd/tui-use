@@ -1,0 +1,48 @@
+name: bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      cli:
+        description: "CLI to run (claude-code, gemini-cli, opencode); empty for all"
+        required: false
+      task:
+        description: "Task id; empty for all"
+        required: false
+      repeats:
+        description: "Repeats per cell"
+        default: "3"
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 720
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && npm run build && npm pack
+      - run: npx tsx bench/runner/cli.ts build-images
+      - name: Run the bench
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CLI: ${{ inputs.cli }}
+          TASK: ${{ inputs.task }}
+          REPEATS: ${{ inputs.repeats }}
+        run: |
+          args=(run --repeats "$REPEATS" --jobs 4)
+          [ -n "$CLI" ] && args+=(--cli "$CLI")
+          [ -n "$TASK" ] && args+=(--task "$TASK")
+          npx tsx bench/runner/cli.ts "${args[@]}"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: bench-results
+          path: bench/results/
