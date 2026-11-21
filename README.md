@@ -232,6 +232,8 @@ Tasks: `rebase-squash-3`, `python-multistep`, `fzf-pick`, `htop-kill`, `ssh-pass
 
 With only a shell, Claude Code still finished every task. For htop and the ssh password prompt it wrote its own Python `pty.fork()` driver, a one-off version of what tui-use provides. With tui-use available it used it in 6 of 12 runs and took more turns. So on tasks like these, a frontier model with Python at hand doesn't fail without tui-use; it improvises. Whether weaker models fail, and whether tui-use saves effort on longer interactive work, is what the full run across all three CLIs is for. Raw rows are in [bench/results/smoke-2026-11-22](bench/results/smoke-2026-11-22).
 
+OpenCode with DeepSeek V4.1 Flash, driven through T3 Code on six interaction-heavy tasks, also passed all 12 runs in both conditions; see [bench/results/delegated-opencode-2026-11-22](bench/results/delegated-opencode-2026-11-22/report.md).
+
 ## Compared with other tools
 
 Based on each project's README in November 2026.
