@@ -59,7 +59,7 @@ function encodeChar(key: Key): string {
 
 export function encodeKey(key: Key, modes: KeyModes): string {
   const { base } = key;
-  if (base.length === 1 || [...base].length === 1) return encodeChar(key);
+  if ([...base].length === 1) return encodeChar(key);
 
   const mods = key.ctrl || key.alt || key.shift;
   const param = modifierParam(key);

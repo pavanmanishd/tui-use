@@ -89,6 +89,21 @@ describe("SessionManager", () => {
     expect(m.get("init")).toBe(fresh);
   });
 
+  it("rejects names that look like ids", () => {
+    expect(() => manager().start(req("vim", "s3"), mcpA)).toThrow(/reserved for ids/);
+  });
+
+  it("replaces every exited session sharing a reused name", async () => {
+    const m = manager();
+    const a = m.start(req("a", "job"), mcpA);
+    await a.kill();
+    const b = m.start(req("b", "job"), mcpA);
+    await b.kill();
+    const c = m.start(req("c", "job"), mcpA);
+    expect(m.get("job")).toBe(c);
+    expect(m.list()).toHaveLength(1);
+  });
+
   it("lists sessions in the unknown-session error", () => {
     const m = manager();
     m.start(req("vim", "ed"), mcpA);
@@ -127,7 +142,7 @@ describe("SessionManager", () => {
       true,
       false,
     ]);
-    expect(m.count).toBe(1);
+    expect(m.list()).toHaveLength(1);
   });
 
   it("kills idle sessions", async () => {
@@ -137,6 +152,6 @@ describe("SessionManager", () => {
     expect(s.killed).toBe(false);
     await m.sweepIdle(Date.now() + 61_000);
     expect(s.killed).toBe(true);
-    expect(m.count).toBe(0);
+    expect(m.list()).toHaveLength(0);
   });
 });

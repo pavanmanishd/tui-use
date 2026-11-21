@@ -49,7 +49,7 @@ export class Recorder {
   }
 
   private event(type: "o" | "r", data: string): void {
-    const t = Math.round(Date.now() - this.start) / 1000;
+    const t = (Date.now() - this.start) / 1000;
     this.line([t, type, data]);
   }
 

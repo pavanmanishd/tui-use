@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
+import { setTimeout as sleep } from "node:timers/promises";
 import { encodeKey, encodePaste, encodeText } from "../keys/encode.js";
 import { parseKey } from "../keys/grammar.js";
 import { type Pty, spawnPty } from "../pty/spawn.js";
@@ -63,6 +64,8 @@ export interface SessionInfo {
 }
 
 export const KILL_GRACE_MS = 2000;
+// node-pty can report exit before the last output chunk is delivered.
+const EXIT_SETTLE_MS = 30;
 
 export class Session extends EventEmitter {
   readonly id: string;
@@ -89,14 +92,13 @@ export class Session extends EventEmitter {
 
   constructor(options: SessionOptions) {
     super();
-    this.setMaxListeners(0);
+    this.setMaxListeners(100);
     this.id = options.id;
     this.name = options.name;
     this.command = options.command;
     this.cwd = options.cwd;
     this.owner = options.owner;
     this.emulator = new Emulator(options.cols, options.rows, options.scrollback);
-    this.pty = spawnPty(options);
     if (options.recordingPath) {
       this.recordingPath = options.recordingPath;
       this.recorder = new Recorder(
@@ -110,6 +112,12 @@ export class Session extends EventEmitter {
         },
         this.redactor.stream(),
       );
+    }
+    try {
+      this.pty = spawnPty(options);
+    } catch (err) {
+      this.recorder?.close();
+      throw err;
     }
 
     this.pty.onData((data) => {
@@ -129,7 +137,7 @@ export class Session extends EventEmitter {
           this.recorder?.close();
           this.emit("exit", this.exitCode);
           resolve();
-        }, 30);
+        }, EXIT_SETTLE_MS);
       });
     });
   }
@@ -144,10 +152,6 @@ export class Session extends EventEmitter {
 
   get rows(): number {
     return this.emulator.rows;
-  }
-
-  get pid(): number {
-    return this.pty.pid;
   }
 
   info(): SessionInfo {
@@ -166,7 +170,7 @@ export class Session extends EventEmitter {
     };
   }
 
-  encode(items: InputItem[]): string {
+  private encode(items: InputItem[]): string {
     let out = "";
     for (const item of items) {
       if ("key" in item) {
@@ -202,7 +206,7 @@ export class Session extends EventEmitter {
     const screen = renderScreen(this.emulator, {
       styles,
       cursor: true,
-      redact: (t) => this.redactor.redact(t),
+      secretRanges: (t) => this.redactor.ranges(t),
     });
     const header = renderHeader({
       id: this.id,
@@ -229,7 +233,7 @@ export class Session extends EventEmitter {
     const screen = renderScreen(this.emulator, {
       styles: "none",
       cursor: false,
-      redact: (t) => this.redactor.redact(t),
+      secretRanges: (t) => this.redactor.ranges(t),
     });
     return screen.rows.join("\n");
   }
@@ -253,33 +257,39 @@ export class Session extends EventEmitter {
 
     return new Promise<WaitOutcome>((resolve) => {
       let done = false;
-      const timers: NodeJS.Timeout[] = [];
+      let idleTimer: NodeJS.Timeout | undefined;
       const finish = (outcome: WaitOutcome) => {
         if (done) return;
         done = true;
-        for (const t of timers) clearTimeout(t);
+        clearTimeout(deadline);
+        clearTimeout(idleTimer);
         this.off("parsed", check);
         this.off("exit", check);
         resolve(outcome);
       };
       const check = async () => {
-        const screen = await this.screenText();
-        const fired = firedCondition(wait, {
-          screen,
-          exited: !this.running,
-          outputIdleMs: Date.now() - this.lastOutputAt,
-        });
-        if (fired) finish({ fired, timed_out: false });
-        else if (wait.idleMs !== undefined) scheduleIdleCheck();
+        if (done) return;
+        try {
+          const screen = await this.screenText();
+          if (done) return;
+          const fired = firedCondition(wait, {
+            screen,
+            exited: !this.running,
+            outputIdleMs: Date.now() - this.lastOutputAt,
+          });
+          if (fired) finish({ fired, timed_out: false });
+          else if (wait.idleMs !== undefined) {
+            clearTimeout(idleTimer);
+            const due = Math.max(1, this.lastOutputAt + wait.idleMs - Date.now());
+            idleTimer = setTimeout(check, due);
+          }
+        } catch {
+          finish({ timed_out: true });
+        }
       };
-      const scheduleIdleCheck = () => {
-        const idleMs = wait.idleMs as number;
-        const due = Math.max(1, this.lastOutputAt + idleMs - Date.now());
-        timers.push(setTimeout(check, due));
-      };
+      const deadline = setTimeout(() => finish({ timed_out: true }), wait.timeoutMs);
       this.on("parsed", check);
       this.on("exit", check);
-      timers.push(setTimeout(() => finish({ timed_out: true }), wait.timeoutMs));
       void check();
     });
   }
@@ -289,9 +299,14 @@ export class Session extends EventEmitter {
     const buffer = this.emulator.term.buffer.normal;
     const lines: string[] = [];
     for (let i = 0; i < buffer.length; i++) {
-      lines.push(this.redactor.redact(buffer.getLine(i)?.translateToString(true) ?? ""));
+      const line = buffer.getLine(i);
+      if (!line) continue;
+      const continues = buffer.getLine(i + 1)?.isWrapped ?? false;
+      const text = line.translateToString(!continues);
+      if (line.isWrapped && lines.length > 0) lines[lines.length - 1] += text;
+      else lines.push(text);
     }
-    return trimTrailingBlank(lines);
+    return trimTrailingBlank(lines.map((l) => this.redactor.redact(l)));
   }
 
   async scrollback(query: { lines?: [number, number]; search?: string }): Promise<string> {
@@ -322,24 +337,26 @@ export class Session extends EventEmitter {
 
   async kill(signal: NodeJS.Signals = "SIGTERM"): Promise<void> {
     if (!this.running) return;
-    this.signal(signal);
-    const grace = setTimeout(() => {
-      if (this.running) this.signal("SIGKILL");
-    }, KILL_GRACE_MS);
+    this.signalGroup(signal);
+    const deadline = Date.now() + KILL_GRACE_MS;
+    while (Date.now() < deadline && (this.running || this.groupAlive())) await sleep(50);
+    if (this.running || this.groupAlive()) this.signalGroup("SIGKILL");
     await this.exitPromise;
-    clearTimeout(grace);
   }
 
-  private signal(signal: NodeJS.Signals): void {
+  private groupAlive(): boolean {
     try {
-      process.kill(-this.pty.pid, signal);
+      process.kill(-this.pty.pid, 0);
+      return true;
     } catch {
-      this.pty.kill(signal);
+      return false;
     }
   }
 
-  exited(): Promise<void> {
-    return this.exitPromise;
+  private signalGroup(signal: NodeJS.Signals): void {
+    try {
+      process.kill(-this.pty.pid, signal);
+    } catch {}
   }
 
   dispose(): void {

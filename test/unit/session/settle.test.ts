@@ -99,26 +99,26 @@ describe("settle", () => {
     expect(settled).toBe(true);
     expect(n).toBeGreaterThanOrEqual(5);
   });
-});
 
-it("does not settle before the first output", async () => {
-  const c = clock();
-  let started = false;
-  let last = 0;
-  c.at(1200, () => {
-    started = true;
-    last = c.now();
+  it("does not settle before the first output", async () => {
+    const c = clock();
+    let started = false;
+    let last = 0;
+    c.at(1200, () => {
+      started = true;
+      last = c.now();
+    });
+    const settled = await settle({
+      idleMs: 300,
+      timeoutMs: 5000,
+      lastActivity: () => last,
+      screenHash: async () => String(started),
+      exited: () => false,
+      started: () => started,
+      now: c.now,
+      wait: (ms) => c.wait(ms),
+    });
+    expect(settled).toBe(true);
+    expect(c.now()).toBeGreaterThanOrEqual(1500);
   });
-  const settled = await settle({
-    idleMs: 300,
-    timeoutMs: 5000,
-    lastActivity: () => last,
-    screenHash: async () => String(started),
-    exited: () => false,
-    started: () => started,
-    now: c.now,
-    wait: (ms) => c.wait(ms),
-  });
-  expect(settled).toBe(true);
-  expect(c.now()).toBeGreaterThanOrEqual(1500);
 });

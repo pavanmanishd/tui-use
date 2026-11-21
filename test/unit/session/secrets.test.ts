@@ -55,3 +55,15 @@ describe("StreamRedactor", () => {
     expect(stream.push("tok") + stream.push("en!") + stream.flush()).toBe("***!");
   });
 });
+
+describe("Redactor.ranges", () => {
+  it("finds non-overlapping ranges, longest secret first", () => {
+    const r = new Redactor();
+    r.add("ab");
+    r.add("abcd");
+    expect(r.ranges("xabcdyab")).toEqual([
+      [1, 5],
+      [6, 8],
+    ]);
+  });
+});

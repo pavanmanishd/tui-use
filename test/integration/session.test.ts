@@ -168,3 +168,40 @@ describe("Session", () => {
     expect(found).toContain("123│line 123");
   });
 });
+
+describe("Session hardening", () => {
+  it("kills a grandchild that ignores SIGTERM after its parent exits", async () => {
+    const s = startSession(`${fixture("ignore-term.mjs")} & wait`);
+    await s.wait({ regex: "ready \\d+" });
+    const pid = Number(/ready (\d+)/.exec(await s.screenText())?.[1]);
+    await s.kill();
+    expect(() => process.kill(pid, 0)).toThrow();
+  });
+
+  it("clears the idle timer and listeners once a wait finishes", async () => {
+    const s = startSession(fixture("spinner.mjs"));
+    expect(await s.wait({ idle_ms: 10_000, timeout_ms: 300 })).toEqual({ timed_out: true });
+    expect(s.listenerCount("parsed")).toBe(0);
+    expect(s.listenerCount("exit")).toBe(0);
+  });
+
+  it("redacts a secret that wraps across rows", async () => {
+    const secret = "abcdefghij0123456789";
+    const s = startSession(`printf '%70s'; printf "$TOKEN"; printf '\\n'; sleep 5`, {
+      env: { TOKEN: secret },
+    });
+    await s.wait(undefined);
+    s.send([{ secret }]);
+    await s.wait({ idle_ms: 100 });
+    const snap = await s.snapshot("full", "marks");
+    expect(snap).not.toContain("abcdefghij");
+    expect(snap).not.toContain("0123456789");
+    expect(snap).toContain("***");
+    const back = await s.scrollback({ lines: [1, -1] });
+    expect(back).not.toContain("abcdefghij");
+  });
+
+  it("does not leave a process behind when the recording cannot be created", () => {
+    expect(() => startSession("sleep 30", { recordingPath: "/dev/null/nope/s1.cast" })).toThrow();
+  });
+});

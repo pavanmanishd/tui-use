@@ -1,3 +1,4 @@
+import { REDACTED } from "../session/secrets.js";
 import type { Emulator } from "./emulator.js";
 
 export type Styles = "marks" | "none";
@@ -5,7 +6,7 @@ export type Styles = "marks" | "none";
 export interface RenderOptions {
   styles: Styles;
   cursor: boolean;
-  redact?: (text: string) => string;
+  secretRanges?: (text: string) => Array<[number, number]>;
 }
 
 export interface Screen {
@@ -32,12 +33,18 @@ function effectiveBackground(cell: {
     : `bg:${cell.getBgColorMode()}:${cell.getBgColor()}`;
 }
 
-function rowTokens(emu: Emulator, y: number): { tokens: Token[]; backgrounds: string[] } {
+interface Row {
+  tokens: Token[];
+  backgrounds: string[];
+  wrapped: boolean;
+}
+
+function rowTokens(emu: Emulator, y: number): Row {
   const buffer = emu.term.buffer.active;
   const line = buffer.getLine(buffer.baseY + y);
   const tokens: Token[] = [];
   const backgrounds: string[] = [];
-  if (!line) return { tokens, backgrounds };
+  if (!line) return { tokens, backgrounds, wrapped: false };
   const cell = buffer.getNullCell();
   for (let x = 0; x < emu.cols; x++) {
     line.getCell(x, cell);
@@ -45,7 +52,32 @@ function rowTokens(emu: Emulator, y: number): { tokens: Token[]; backgrounds: st
     tokens.push({ text: cell.getChars() || " ", x, marked: false });
     backgrounds.push(effectiveBackground(cell));
   }
-  return { tokens, backgrounds };
+  return { tokens, backgrounds, wrapped: line.isWrapped };
+}
+
+function redactRows(rows: Row[], secretRanges: (text: string) => Array<[number, number]>): void {
+  let start = 0;
+  while (start < rows.length) {
+    let end = start + 1;
+    while (end < rows.length && rows[end]?.wrapped) end++;
+    const tokens = rows.slice(start, end).flatMap((r) => r.tokens);
+    const offsets: number[] = [];
+    let text = "";
+    for (const t of tokens) {
+      offsets.push(text.length);
+      text += t.text;
+    }
+    for (const [from, to] of secretRanges(text)) {
+      let first = true;
+      tokens.forEach((t, i) => {
+        const at = offsets[i] as number;
+        if (at + t.text.length <= from || at >= to) return;
+        t.text = first ? REDACTED : "";
+        first = false;
+      });
+    }
+    start = end;
+  }
 }
 
 function majority(counts: Map<string, number>): string | undefined {
@@ -67,11 +99,12 @@ function escapeMarks(text: string): string {
 export function renderScreen(emu: Emulator, options: RenderOptions): Screen {
   const buffer = emu.term.buffer.active;
   const cursorRow = buffer.cursorY;
-  const cursorCol = buffer.cursorX;
-  const showCursor = options.cursor && emu.cursorVisible && cursorCol < emu.cols;
+  const cursorCol = Math.min(buffer.cursorX, emu.cols - 1);
+  const showCursor = options.cursor && emu.cursorVisible && buffer.cursorX < emu.cols;
   const marks = options.styles === "marks";
 
   const perRow = Array.from({ length: emu.rows }, (_, y) => rowTokens(emu, y));
+  if (options.secretRanges) redactRows(perRow, options.secretRanges);
   let baseline: string | undefined;
   if (marks) {
     const counts = new Map<string, number>();
@@ -88,7 +121,7 @@ export function renderScreen(emu: Emulator, options: RenderOptions): Screen {
       });
     }
     const cursorIndex = showCursor && y === cursorRow ? cursorTokenIndex(tokens, cursorCol) : -1;
-    return joinTokens(tokens, cursorIndex, marks, options.redact);
+    return joinTokens(tokens, cursorIndex, marks);
   });
   return { rows, cursorRow: cursorRow + 1, cursorCol: cursorCol + 1 };
 }
@@ -100,20 +133,17 @@ function cursorTokenIndex(tokens: Token[], col: number): number {
   return -1;
 }
 
-function joinTokens(
-  tokens: Token[],
-  cursorIndex: number,
-  marks: boolean,
-  redact?: (text: string) => string,
-): string {
+const blank = (t: Token) => t.text.trim() === "";
+
+function joinTokens(tokens: Token[], cursorIndex: number, marks: boolean): string {
   let last = tokens.length - 1;
   while (last > cursorIndex) {
     const t = tokens[last] as Token;
-    if (t.text !== " " || t.marked) break;
+    if (!blank(t) || t.marked) break;
     last--;
   }
   let lastMarkedText = last;
-  while (lastMarkedText > cursorIndex && (tokens[lastMarkedText] as Token).text === " ") {
+  while (lastMarkedText > cursorIndex && blank(tokens[lastMarkedText] as Token)) {
     lastMarkedText--;
   }
 
@@ -126,12 +156,12 @@ function joinTokens(
       open = t.marked;
     }
     if (open && i > lastMarkedText && i !== cursorIndex) continue;
-    const text = marks ? escapeMarks(t.text) : t.text;
-    out += i === cursorIndex ? `[${text}]` : text;
+    const text = marks && t.text !== REDACTED ? escapeMarks(t.text) : t.text;
+    out += i === cursorIndex ? `[${text || " "}]` : text;
   }
   if (open) out += "»";
   if (out === "«»") out = "« »";
-  return redact ? redact(out) : out;
+  return out;
 }
 
 export interface HeaderInfo {

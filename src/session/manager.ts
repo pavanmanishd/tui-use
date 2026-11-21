@@ -39,11 +39,14 @@ export class SessionManager {
     }
 
     if (req.name !== undefined) {
+      if (/^s\d+$/.test(req.name)) {
+        throw new Error(`session names like "${req.name}" are reserved for ids; pick another name`);
+      }
       const existing = this.byName(req.name);
       if (existing?.running) {
         throw new Error(`a running session is already named "${req.name}" (${existing.id})`);
       }
-      if (existing) this.remove(existing);
+      for (const old of this.all().filter((s) => s.name === req.name)) this.remove(old);
     }
 
     const id = `s${this.nextId++}`;
@@ -80,10 +83,6 @@ export class SessionManager {
 
   list(): SessionInfo[] {
     return this.all().map((s) => s.info());
-  }
-
-  get count(): number {
-    return this.sessions.size;
   }
 
   get runningCount(): number {

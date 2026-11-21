@@ -13,12 +13,27 @@ export class Redactor {
     return max;
   }
 
-  redact(text: string): string {
-    let out = text;
+  ranges(text: string): Array<[number, number]> {
+    const found: Array<[number, number]> = [];
     for (const s of [...this.secrets].sort((a, b) => b.length - a.length)) {
-      out = out.replaceAll(s, REDACTED);
+      let at = text.indexOf(s);
+      while (at !== -1) {
+        const end = at + s.length;
+        if (!found.some(([a, b]) => at < b && end > a)) found.push([at, end]);
+        at = text.indexOf(s, at + 1);
+      }
     }
-    return out;
+    return found.sort((a, b) => a[0] - b[0]);
+  }
+
+  redact(text: string): string {
+    let out = "";
+    let last = 0;
+    for (const [start, end] of this.ranges(text)) {
+      out += text.slice(last, start) + REDACTED;
+      last = end;
+    }
+    return out + text.slice(last);
   }
 
   stream(): StreamRedactor {

@@ -22,15 +22,17 @@ export function readRange(lines: string[], from: number, to: number): NumberedLi
   return out;
 }
 
-export function search(lines: string[], query: string, context = 2): NumberedLine[][] {
+const CONTEXT = 2;
+
+export function search(lines: string[], query: string): NumberedLine[][] {
   const blocks: NumberedLine[][] = [];
   let current: NumberedLine[] = [];
   let currentEnd = 0;
   lines.forEach((line, i) => {
     if (!line.includes(query)) return;
     const n = i + 1;
-    const start = Math.max(1, n - context);
-    const end = Math.min(lines.length, n + context);
+    const start = Math.max(1, n - CONTEXT);
+    const end = Math.min(lines.length, n + CONTEXT);
     if (current.length > 0 && start <= currentEnd + 1) {
       for (let k = currentEnd + 1; k <= end; k++)
         current.push({ n: k, text: lines[k - 1] as string });
