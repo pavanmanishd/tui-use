@@ -221,18 +221,24 @@ tui-use replay ~/.local/share/tui-use/recordings/20261121-101500-s1.cast
 
 TUI-Bench is 40 interactive tasks (editors, git, prompts, REPLs, full-screen apps, ssh and pickers), each in a Docker container with a scripted checker. It runs real agent CLIs (Claude Code, Gemini CLI and OpenCode) with the shell tool only, then with tui-use added, and reports success rate, turns, tokens and wall time. See [bench/README.md](bench/README.md) to reproduce it.
 
-The full run (all 40 tasks, three CLIs, three repeats) hasn't happened yet. A first smoke run with Claude Code on six tasks, one repeat each, gave:
+### Results
 
-| Model | Shell only | With tui-use | Median turns (shell / tui-use) | Median tokens (shell / tui-use) |
-|---|---|---|---|---|
-| claude-opus-5-5 | 6/6 | 6/6 | 3 / 7 | 64k / 133k |
-| claude-haiku-5-5 | 6/6 | 6/6 | 4 / 6 | 90k / 130k |
+Claude Code 2.1.329, all 40 tasks, 3 repeats per cell, 480 runs:
 
-Tasks: `rebase-squash-3`, `python-multistep`, `fzf-pick`, `htop-kill`, `ssh-password-edit-restart`, `vim-recover-swap`.
+| Model | Shell only | With tui-use | Median turns (shell / tui-use) | Median tokens (shell / tui-use) | Median wall time (shell / tui-use) |
+|---|---|---|---|---|---|
+| claude-opus-5-5 | 99% | 100% | 4 / 8 | 84k / 151k | 17 s / 20 s |
+| claude-haiku-5-5 | 99% | 100% | 4 / 5 | 90k / 114k | 15 s / 14 s |
 
-With only a shell, Claude Code still finished every task. For htop and the ssh password prompt it wrote its own Python `pty.fork()` driver, a one-off version of what tui-use provides. With tui-use available it used it in 6 of 12 runs and took more turns. So on tasks like these, a frontier model with Python at hand doesn't fail without tui-use; it improvises. Whether weaker models fail, and whether tui-use saves effort on longer interactive work, is what the full run across all three CLIs is for. Raw rows are in [bench/results/smoke-2026-11-22](bench/results/smoke-2026-11-22).
+What this shows:
 
-OpenCode with DeepSeek V4.1 Flash, driven through T3 Code on six interaction-heavy tasks, also passed all 12 runs in both conditions; see [bench/results/delegated-opencode-2026-11-22](bench/results/delegated-opencode-2026-11-22/report.md).
+- With only a shell, Claude Code still finished almost every task. When a program needed a terminal (htop, ssh password prompts, whiptail, vimdiff), it usually wrote its own Python `pty.fork()` driver on the spot. The two failures were both `htop-kill` without tui-use.
+- With tui-use available, the agent chose it in 129 of 240 runs (Opus 80 of 120, Haiku 49 of 120), mostly for editors, prompts, pickers, full-screen apps and ssh. Those runs took more turns and tokens than the shell runs, because the agent looks at the screen between steps instead of scripting blind.
+- So for a frontier model with Python at hand, tui-use doesn't decide whether an interactive task gets done. It replaces ad hoc pty scripts with one tool the agent can see and type into, and the agent picks it when it's there.
+
+OpenCode with DeepSeek V4.1 Flash, run through T3 Code on six interaction-heavy tasks with one repeat, passed all 12 runs in both conditions ([details](bench/results/delegated-opencode-2026-11-22/report.md)). Gemini CLI and the open-weight models in [bench/runner/matrix.json](bench/runner/matrix.json) haven't been run yet; they need `GEMINI_API_KEY` and `OPENROUTER_API_KEY`.
+
+Two caveats. The Claude runs used a Claude subscription token, so Claude Code inside the containers also loaded that account's organization policy, equally in both conditions. And one repeat for the OpenCode batch is too few to separate small differences. Raw rows: [bench/results/claude-full-2026-11-22](bench/results/claude-full-2026-11-22).
 
 ## Compared with other tools
 
