@@ -24,7 +24,9 @@ describe.skipIf(!docker)("ssh with a password from secret_env", () => {
   beforeAll(() => {
     const context = fileURLToPath(new URL("./sshd", import.meta.url));
     execSync(`docker build -q -t tui-use-sshd ${context}`, { stdio: "ignore" });
-    execSync(`docker run -d --rm --name ${NAME} -p 127.0.0.1::22 tui-use-sshd`, { stdio: "ignore" });
+    execSync(`docker run -d --rm --name ${NAME} -p 127.0.0.1::22 tui-use-sshd`, {
+      stdio: "ignore",
+    });
     port = Number(execSync(`docker port ${NAME} 22`).toString().trim().split(":").pop());
   }, 180_000);
 

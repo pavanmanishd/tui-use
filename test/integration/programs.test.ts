@@ -25,7 +25,13 @@ describe("real programs", () => {
     const dir = workdir();
     const s = startSession(`cd ${dir} && vim -u NONE -N notes.md`);
     await s.wait({ text: "notes.md" });
-    s.send([{ text: "4G" }, { text: "A today" }, { key: "esc" }, { text: ":wq" }, { key: "enter" }]);
+    s.send([
+      { text: "4G" },
+      { text: "A today" },
+      { key: "esc" },
+      { text: ":wq" },
+      { key: "enter" },
+    ]);
     expect(await s.wait({ exit: true, timeout_ms: 5000 })).toMatchObject({ fired: "exit" });
     expect(readFileSync(join(dir, "notes.md"), "utf8")).toContain("- call bank today");
   });
