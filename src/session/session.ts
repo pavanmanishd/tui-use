@@ -83,6 +83,7 @@ export class Session extends EventEmitter {
   lastInputAt = Date.now();
   attached = 0;
   hasOutput = false;
+  outputChunks = 0;
 
   private readonly emulator: Emulator;
   private readonly pty: Pty;
@@ -123,6 +124,7 @@ export class Session extends EventEmitter {
     this.pty.onData((data) => {
       this.lastOutputAt = Date.now();
       this.hasOutput = true;
+      this.outputChunks++;
       this.recorder?.output(data);
       void this.emulator.write(data).then(() => {
         this.emit("output", data);
@@ -242,7 +244,7 @@ export class Session extends EventEmitter {
     return screen.rows.join("\n");
   }
 
-  async wait(spec: WaitSpec | undefined): Promise<WaitOutcome> {
+  async wait(spec: WaitSpec | undefined, afterChunk?: number): Promise<WaitOutcome> {
     const wait = normalizeWait(spec);
     if (wait.settle) {
       const settled = await settle({
@@ -276,11 +278,15 @@ export class Session extends EventEmitter {
         try {
           const screen = await this.screenText();
           if (done) return;
-          const fired = firedCondition(wait, {
-            screen,
-            exited: !this.running,
-            outputIdleMs: Date.now() - this.lastOutputAt,
-          });
+          const reacted =
+            afterChunk === undefined || this.outputChunks > afterChunk || !this.running;
+          const fired = reacted
+            ? firedCondition(wait, {
+                screen,
+                exited: !this.running,
+                outputIdleMs: Date.now() - Math.max(this.lastOutputAt, this.lastInputAt),
+              })
+            : null;
           if (fired) finish({ fired, timed_out: false });
           else if (wait.idleMs !== undefined) {
             clearTimeout(idleTimer);

@@ -243,8 +243,9 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
       case "send": {
         const p = parseParams("send", raw);
         const session = controlled(conn, p.session);
+        const before = session.outputChunks;
         session.send(p.input);
-        const outcome = await session.wait(p.wait);
+        const outcome = await session.wait(p.wait, before);
         return screen(conn.viewer, session, p.mode, p.styles, outcome);
       }
       case "snapshot": {

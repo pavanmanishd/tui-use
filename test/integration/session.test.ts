@@ -205,3 +205,25 @@ describe("Session hardening", () => {
     expect(() => startSession("sleep 30", { recordingPath: "/dev/null/nope/s1.cast" })).toThrow();
   });
 });
+
+describe("waits after input", () => {
+  it("does not fire on text that was on screen before the program reacted", async () => {
+    const s = startSession(`${fixture("keys.mjs")}`);
+    await s.wait({ text: "ready" });
+    const before = s.outputChunks;
+    s.send([{ text: "x" }]);
+    const outcome = await s.wait({ text: "ready", timeout_ms: 3000 }, before);
+    expect(outcome).toMatchObject({ fired: "text" });
+    expect(await s.screenText()).toContain('got "x"');
+  });
+
+  it("times out when the program never reacts", async () => {
+    const s = startSession("sleep 30");
+    await s.wait({ idle_ms: 100 });
+    const before = s.outputChunks;
+    s.send([{ text: "" }]);
+    expect(await s.wait({ gone: "nothing here", timeout_ms: 300 }, before)).toEqual({
+      timed_out: true,
+    });
+  });
+});
