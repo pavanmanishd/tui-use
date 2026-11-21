@@ -1,10 +1,8 @@
-<img src="assets/icon.svg" width="64" height="64" alt="">
-
 # tui-use
 
-Let any AI agent drive interactive terminal programs: vim, `git rebase -i`, `npm init`, ssh, REPLs, htop, installers and database shells.
+Let any AI agent drive interactive terminal programs: vim, `git rebase -i`, `npm init`, ssh, REPLs, debuggers, htop, installers and database shells.
 
-Coding agents run shell commands one at a time without a terminal. A command that waits for input hangs until the tool times out, full-screen programs print escape codes, and a REPL forgets everything between turns. tui-use gives the agent a real terminal it can see and type into, across as many turns as it needs.
+Coding agents run shell commands one at a time, without a terminal. A command that waits for input hangs until the tool times out, a full-screen program prints escape codes, and a REPL forgets everything between turns. tui-use gives the agent a real terminal that it can read and type into across as many turns as it needs.
 
 ```
 claude mcp add tui-use -- npx -y @pavanmanishd/tui-use@1.0.0 mcp
@@ -12,11 +10,11 @@ claude mcp add tui-use -- npx -y @pavanmanishd/tui-use@1.0.0 mcp
 
 ![Claude Code squashing three commits with git rebase -i through tui-use](assets/demo.gif)
 
-Claude Code (Opus) squashing three commits with `git rebase -i` through tui-use: it rewrites the todo list with `:2,3s/^pick/squash/`, replaces the combined message, and saves. This is the terminal the agent drove, as tui-use recorded it.
+Claude Code (Opus) squashing three commits with `git rebase -i` through tui-use. It rewrites the todo list with `:2,3s/^pick/squash/`, replaces the combined commit message and saves. This is the terminal the agent drove, as tui-use recorded it.
 
 ## What the agent sees
 
-Every call that changes something returns the screen as numbered text. The cursor is `[x]`, and highlighted text such as the selected menu item is wrapped in `«…»`.
+Every call that changes something returns the screen as numbered text. The cursor is shown as `[x]`, and highlighted text, such as the selected item in a menu, is wrapped in `«…»`.
 
 ```
 session s1 · git rebase -i HEAD~3 · 120x40 · cursor 2:1 · alt · running · idle 310ms
@@ -43,7 +41,7 @@ session s1 · python3 · 120x40 · cursor 6:5 · normal · running · idle 312ms
 
 ## Install
 
-tui-use needs Node.js 22 or later on macOS or Linux (on Windows, use WSL). It ships prebuilt terminal binaries for x64 and arm64, so nothing compiles during install.
+tui-use needs Node.js 22 or later on macOS or Linux. On Windows, use WSL. Prebuilt terminal binaries ship for x64 and arm64, so nothing is compiled during install.
 
 ### Claude Code
 
@@ -51,7 +49,7 @@ tui-use needs Node.js 22 or later on macOS or Linux (on Windows, use WSL). It sh
 claude mcp add tui-use -- npx -y @pavanmanishd/tui-use@1.0.0 mcp
 ```
 
-Or install the plugin, which also adds a skill that tells Claude when to use tui-use instead of the shell:
+The plugin adds the same server plus a skill that tells Claude when to use tui-use instead of the shell:
 
 ```
 /plugin install tui-use --marketplace pavanmanishd/tui-use
@@ -132,12 +130,12 @@ tui-use send init --text "my-app" --key enter
 
 | Tool | What it does |
 |---|---|
-| `tui_start` | Start a program and return its first screen. Params: `command`, `cwd`, `env`, `cols`, `rows`, `name`, `wait`. |
-| `tui_send` | Type `text`, a `secret_env` value and `keys` (or an ordered `input` list), wait, and return the new screen. `paste: true` sends a bracketed paste. `mode` is `diff` by default. |
-| `tui_snapshot` | Return the screen without sending input. `styles: "none"` drops the `«…»` marks. |
-| `tui_wait` | Wait without sending input, for builds and installs. |
-| `tui_scrollback` | Read output that scrolled off screen, by line range (`[-50, -1]`) or `search`. |
-| `tui_manage` | `list`, `kill` (SIGTERM, then SIGKILL after 2 s), `resize`, or `recording` (the asciinema file path). |
+| `tui_start` | Starts a program and returns its first screen. Takes `command`, `cwd`, `env`, `cols`, `rows`, `name` and `wait`. |
+| `tui_send` | Types `text`, a `secret_env` value and `keys` (or an ordered `input` list), waits, and returns the new screen as a diff by default. `paste: true` sends the text as a bracketed paste. |
+| `tui_snapshot` | Returns the screen without sending input. `styles: "none"` drops the `«…»` marks. |
+| `tui_wait` | Waits without sending input, for builds and installs. |
+| `tui_scrollback` | Reads output that scrolled off the screen, by line range (such as `[-50, -1]`) or by `search`. |
+| `tui_manage` | Lists sessions, kills one (SIGTERM, then SIGKILL after 2 s), resizes one, or returns the path of its recording. |
 
 Saving and quitting vim in one call:
 
@@ -145,26 +143,26 @@ Saving and quitting vim in one call:
 { "session": "s1", "input": [{ "key": "esc" }, { "text": ":wq" }, { "key": "enter" }] }
 ```
 
-Key names: `enter`, `tab`, `esc`, `backspace`, `delete`, `up`, `down`, `left`, `right`, `home`, `end`, `pageup`, `pagedown`, `space`, `f1` to `f12`, any single character, with `ctrl+`, `alt+` or `shift+` in front (`ctrl+c`, `shift+tab`). An unknown name is an error, never typed as text.
+Key names are `enter`, `tab`, `esc`, `backspace`, `delete`, `up`, `down`, `left`, `right`, `home`, `end`, `pageup`, `pagedown`, `space`, `f1` to `f12` and any single character, optionally prefixed with `ctrl+`, `alt+` or `shift+` (for example `ctrl+c` or `shift+tab`). An unknown key name is an error, never typed as text.
 
 ### Waiting
 
-By default a call returns once the program has printed something and then gone quiet for 300 ms with an unchanged screen, or after 5 s. If the program is still drawing (a spinner, a slow install), the response ends with a note saying so. For slow programs, pass a wait object:
+By default, a call returns once the program has printed something and then stayed quiet for 300 ms with an unchanged screen, or after 5 seconds. If the program is still drawing, such as a spinner or a slow install, the response ends with a note saying so. For slow programs, pass a wait object:
 
 | Field | Returns when |
 |---|---|
 | `text` | this substring is on screen |
 | `regex` | this pattern matches the screen |
 | `gone` | this substring has left the screen |
-| `idle_ms` | no output for this long |
+| `idle_ms` | there has been no output for this long |
 | `exit` | the program exits |
-| `timeout_ms` | upper bound, default 5000, max 600000 |
+| `timeout_ms` | the time limit is reached (default 5000, max 600000) |
 
 Conditions combine with OR, and the response names the one that fired.
 
 ## CLI
 
-The CLI covers the same operations for agents that only have a shell. Sessions live in a background daemon, so they survive between shell calls.
+The CLI offers the same operations to agents that only have a shell. Sessions live in a background daemon, so they survive between shell calls.
 
 ```
 tui-use start "npm init" --name init
@@ -179,30 +177,15 @@ tui-use attach init
 tui-use replay ~/.local/share/tui-use/recordings/20261121-101500-s1.cast
 ```
 
-`--json` prints the raw response. Exit codes: 0 ok, 1 request error, 2 usage error, 3 wait timed out. Quote commands that have their own flags: `tui-use start "git rebase -i HEAD~3"`.
+`--json` prints the raw response. Exit codes are 0 for success, 1 for a request error, 2 for a usage error and 3 when a wait times out. Quote commands that have their own flags, as in `tui-use start "git rebase -i HEAD~3"`.
 
-## Watch the agent, or take over
+## Watching or taking over
 
-`tui-use attach <session>` mirrors a session in your terminal while the agent works. Anything you type goes to the program too, and the agent's screen header shows `human attached (rw)` while you are there. Press `ctrl+]` to detach; the session keeps running.
-
-## Security
-
-- tui-use runs commands as you, with the environment of the agent that asked. It adds no privilege the agent's shell tool didn't already have, and it is not a sandbox.
-- One daemon per user listens on a unix socket in a directory only you can read. Clients refuse to connect if that directory is a symlink, belongs to someone else, or is readable by other users.
-- `secret_env` names an environment variable of the tui-use process (for example one set in your MCP config). Its value is typed into the program and replaced with `***` anywhere it would appear in a screen, scrollback, search result or recording. List those variables in `TUI_USE_SECRETS=SSH_PASS,DB_PASS` so they are not copied into the environment of the programs tui-use starts.
-- Sessions an MCP client starts are killed when that client disconnects. Another MCP client can read them but cannot type into them.
-- Every session is recorded as an asciinema v2 file under `~/.local/share/tui-use/recordings`. Recordings never contain input, and they are deleted after 7 days.
-
-## Known limitations
-
-- Highlight marks compare each cell's background with the most common one on screen. When two buttons have different colours, as in `gum confirm`, both get marked and the snapshot doesn't show which one is active. Use the program's shortcut key (for example `y` or `n`) instead.
-- Settle detection can't tell a spinner from progress. Pass a `wait` with `text`, `regex` or `gone` for slow programs.
-- Redaction matches the exact secret. A program that prints it transformed (masked, split by escape codes) is not caught.
-- No mouse input yet, and no native Windows (WSL works).
+`tui-use attach <session>` mirrors a session in your terminal while the agent works. Anything you type goes to the program as well, and the agent's screen header shows `human attached (rw)` while you are attached. Press `ctrl+]` to detach; the session keeps running.
 
 ## Configuration
 
-`~/.config/tui-use/config.json`, all keys optional:
+`~/.config/tui-use/config.json`, with every key optional:
 
 ```json
 {
@@ -215,30 +198,43 @@ tui-use replay ~/.local/share/tui-use/recordings/20261121-101500-s1.cast
 }
 ```
 
-`deny` holds regular expressions; a matching command is refused before anything runs. An unknown key stops the daemon from starting, so a typo can't silently do nothing.
+`deny` is a list of regular expressions. A command that matches one is refused before anything runs. An unknown key stops the daemon from starting, so a typo can't be silently ignored.
+
+## Security
+
+- tui-use runs commands as you, with the environment of the agent that asked. It adds no privilege that the agent's shell tool didn't already have, and it is not a sandbox.
+- One daemon per user listens on a unix socket in a directory only you can read. Clients refuse to connect if that directory is a symlink, belongs to another user, or is readable by other users.
+- `secret_env` names an environment variable of the tui-use process, for example one set in your MCP config. Its value is typed into the program and replaced with `***` wherever it would appear in a screen, scrollback, search result or recording. List such variables in `TUI_USE_SECRETS` (for example `TUI_USE_SECRETS=SSH_PASS,DB_PASS`) so they are not copied into the environment of the programs tui-use starts.
+- Sessions an MCP client starts are killed when that client disconnects. Other MCP clients can read them but cannot type into them.
+- Every session is recorded as an asciinema v2 file under `~/.local/share/tui-use/recordings`. Recordings never contain input and are deleted after 7 days.
+
+## Known limitations
+
+- Highlight marks compare each cell's background with the most common background on screen. When two buttons have different colours, as in `gum confirm`, both are marked and the snapshot doesn't show which one is active. Use the program's shortcut key, such as `y` or `n`, instead.
+- Settle detection can't tell a spinner from real progress. For slow programs, pass a `wait` with `text`, `regex` or `gone`.
+- Redaction matches the exact secret. A program that prints it in altered form, such as masked or split by escape codes, is not caught.
+- There is no mouse input yet, and no native Windows support (WSL works).
 
 ## TUI-Bench
 
-TUI-Bench is 40 interactive tasks (editors, git, prompts, REPLs, full-screen apps, ssh and pickers), each in a Docker container with a scripted checker. It runs real agent CLIs (Claude Code, Gemini CLI and OpenCode) with the shell tool only, then with tui-use added, and reports success rate, turns, tokens and wall time. See [bench/README.md](bench/README.md) to reproduce it.
+TUI-Bench is a set of 40 interactive tasks covering editors, git, prompts, REPLs, full-screen apps, ssh and pickers. Each task runs in a Docker container and is scored by a scripted checker. The runner drives real agent CLIs (Claude Code, Gemini CLI and OpenCode) twice per task, once with only the shell tool and once with tui-use added, and reports success rate, turns, tokens and wall time. See [bench/README.md](bench/README.md) to reproduce it.
 
 ### Results
 
-Claude Code 2.1.329, all 40 tasks, 3 repeats per cell, 480 runs:
+Claude Code 2.1.329 on all 40 tasks, with 3 repeats per cell (480 runs):
 
 | Model | Shell only | With tui-use | Median turns (shell / tui-use) | Median tokens (shell / tui-use) | Median wall time (shell / tui-use) |
 |---|---|---|---|---|---|
-| claude-opus-5-5 | 99% | 100% | 4 / 8 | 84k / 151k | 17 s / 20 s |
-| claude-haiku-5-5 | 99% | 100% | 4 / 5 | 90k / 114k | 15 s / 14 s |
+| Claude Opus 5.5 | 99% | 100% | 4 / 8 | 84k / 151k | 17 s / 20 s |
+| Claude Haiku 5.5 | 99% | 100% | 4 / 5 | 90k / 114k | 15 s / 14 s |
 
-What this shows:
+- With only a shell, Claude Code still finished almost every task. When a program needed a terminal (htop, ssh password prompts, whiptail, vimdiff), it usually wrote its own Python `pty.fork()` driver on the spot. Both failures were `htop-kill` runs without tui-use.
+- With tui-use available, the agent chose it in 129 of 240 runs (Opus in 80 of 120, Haiku in 49 of 120), mostly for editors, prompts, pickers, full-screen apps and ssh. Those runs took more turns and tokens than the shell runs, because the agent reads the screen between steps instead of scripting blind.
+- For a frontier model with Python available, tui-use doesn't decide whether an interactive task gets done. It replaces improvised pty scripts with one tool the agent can see and type into, and the agent uses it when it is there.
 
-- With only a shell, Claude Code still finished almost every task. When a program needed a terminal (htop, ssh password prompts, whiptail, vimdiff), it usually wrote its own Python `pty.fork()` driver on the spot. The two failures were both `htop-kill` without tui-use.
-- With tui-use available, the agent chose it in 129 of 240 runs (Opus 80 of 120, Haiku 49 of 120), mostly for editors, prompts, pickers, full-screen apps and ssh. Those runs took more turns and tokens than the shell runs, because the agent looks at the screen between steps instead of scripting blind.
-- So for a frontier model with Python at hand, tui-use doesn't decide whether an interactive task gets done. It replaces ad hoc pty scripts with one tool the agent can see and type into, and the agent picks it when it's there.
+OpenCode with DeepSeek V4.1 Flash, run through T3 Code on six interaction-heavy tasks with one repeat, passed all 12 runs in both conditions ([details](bench/results/delegated-opencode-2026-11-22/report.md)). Gemini CLI and the open-weight models in [bench/runner/matrix.json](bench/runner/matrix.json) have not been run yet; they need `GEMINI_API_KEY` and `OPENROUTER_API_KEY`.
 
-OpenCode with DeepSeek V4.1 Flash, run through T3 Code on six interaction-heavy tasks with one repeat, passed all 12 runs in both conditions ([details](bench/results/delegated-opencode-2026-11-22/report.md)). Gemini CLI and the open-weight models in [bench/runner/matrix.json](bench/runner/matrix.json) haven't been run yet; they need `GEMINI_API_KEY` and `OPENROUTER_API_KEY`.
-
-Two caveats. The Claude runs used a Claude subscription token, so Claude Code inside the containers also loaded that account's organization policy, equally in both conditions. And one repeat for the OpenCode batch is too few to separate small differences. Raw rows: [bench/results/claude-full-2026-11-22](bench/results/claude-full-2026-11-22).
+Two caveats apply. The Claude runs used a Claude subscription token, so Claude Code inside the containers also loaded that account's organization policy, equally in both conditions. And a single repeat for the OpenCode batch is too few to separate small differences. The raw results are in [bench/results/claude-full-2026-11-22](bench/results/claude-full-2026-11-22).
 
 ## Compared with other tools
 
@@ -246,14 +242,14 @@ Based on each project's README in November 2026.
 
 | | tui-use | terminal-use (`tu`) | mcp-interactive-terminal | pexpect-mcp | tmux MCP servers |
 |---|---|---|---|---|---|
-| MCP server | yes | no, CLI | yes | yes | yes |
+| MCP server | yes | no, CLI only | yes | yes | yes |
 | CLI for agents with only a shell | yes | yes | no | no | no |
-| Full terminal emulator | xterm.js | alacritty | xterm.js | no (pexpect) | tmux |
+| Terminal emulator | xterm.js | alacritty | xterm.js | none (pexpect) | tmux |
 | Input, wait and new screen in one call | yes | no, separate commands | yes | not documented | varies |
 | Diff of changed rows | yes | not documented | not documented | no | not documented |
 | Selected items marked in text | yes | not documented | not documented | no | not documented |
 | Secrets kept out of output | yes | not documented | not documented | not documented | not documented |
-| Human watches live | yes, and can type | yes, watch only | not documented | not documented | yes (tmux attach) |
+| Human can watch live | yes, and type | yes, watch only | not documented | not documented | yes (tmux attach) |
 | Mouse input | not yet | yes | not documented | not documented | not documented |
 | Recordings | asciinema | not documented | not documented | not documented | not documented |
 | Benchmark | TUI-Bench | no | no | no | no |
@@ -264,7 +260,7 @@ Based on each project's README in November 2026.
 npm ci
 npm run lint && npm run typecheck
 npm test                  # unit tests
-npm run test:integration  # real programs in real terminals; ssh test needs Docker
+npm run test:integration  # real programs in real terminals; the ssh test needs Docker
 ```
 
 ## License
