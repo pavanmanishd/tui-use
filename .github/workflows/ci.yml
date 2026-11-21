@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node: [22, 24]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - name: Install programs (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y vim less htop fzf nano
+      - name: Install programs (macOS)
+        if: runner.os == 'macOS'
+        run: brew install fzf htop
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:integration
+      - name: Validate MCP registry entry
+        if: runner.os == 'Linux' && matrix.node == 24
+        run: node scripts/check-server-json.mjs
+
+  install:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - run: npm ci && npm pack
+      - name: Install the tarball in a clean directory and run it
+        shell: bash
+        run: |
+          tarball="$PWD/$(ls pavanmanishd-tui-use-*.tgz)"
+          mkdir -p /tmp/clean && cd /tmp/clean
+          npm init -y >/dev/null
+          npm install --ignore-scripts "$tarball"
+          npx tui-use --version
+          npx tui-use list
+          npx tui-use start "echo hello-from-pty" --until-exit | grep hello-from-pty
+          npx tui-use kill --all

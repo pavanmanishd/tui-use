@@ -1,18 +1,48 @@
 {
   "name": "@pavanmanishd/tui-use",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Let any AI agent drive interactive terminal programs: vim, git rebase -i, npm init, ssh, REPLs, htop.",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "terminal",
+    "pty",
+    "tui",
+    "agent",
+    "claude",
+    "vim",
+    "repl",
+    "cli"
+  ],
+  "homepage": "https://github.com/pavanmanishd/tui-use#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pavanmanishd/tui-use.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pavanmanishd/tui-use/issues"
+  },
   "license": "Apache-2.0",
+  "mcpName": "io.github.pavanmanishd/tui-use",
   "type": "module",
   "bin": {
     "tui-use": "dist/cli/main.js"
   },
   "files": [
     "dist",
-    "NOTICE"
+    "NOTICE",
+    "npm-shrinkwrap.json"
   ],
   "engines": {
     "node": ">=22"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -20,7 +50,8 @@
     "lint": "biome check . && node scripts/check-pins.mjs",
     "format": "biome format --write .",
     "test": "vitest run --project unit",
-    "test:integration": "npm run build && vitest run --project integration"
+    "test:integration": "npm run build && vitest run --project integration",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@lydell/node-pty": "1.1.0",
