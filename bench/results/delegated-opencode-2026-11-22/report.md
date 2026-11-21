@@ -13,4 +13,4 @@ OpenCode ran on the host through T3 Code and worked inside each task's container
 
 12 of 12 runs passed. In the shell-only condition the agent wrote its own pty driver for the whiptail checklist, as Claude Code did for htop and ssh in the smoke run.
 
-The same batch on Codex (GPT-6 Luna) failed before any work with `Unsupported service_tier: flex`, a provider configuration error, so it has no results.
+The same batch on Codex (GPT-6 Luna) failed before any work with `Unsupported service_tier: flex`, a provider configuration error, so it has no results. A rerun on Grok 4.7 scored one run (`gdb-find-bug`, shell only: pass); the other 11 stopped with `402 Payment Required` when the Grok balance ran out and have no results.
