@@ -1,0 +1,15 @@
+mc-linux
+───
+ 1│«  Left     File     Command     Options     Right»
+ 2│┌<─« /tmp/golden-E2QYCU »───────────.[^]>┐┌<─ /tmp/golden-E2QYCU ───────────.[^]>┐
+ 3││.n     Name      │ Size  │Modify time ││.n     Name      │ Size  │Modify time │
+ 4││«/..              │UP--DIR│Nov 21 21:51»││/..              │UP--DIR│Nov 21 21:51│
+ 5││ notes.txt       │     46│Nov 21 21:51││ notes.txt       │     46│Nov 21 21:51│
+ 6││                 │       │            ││                 │       │            │
+…(rows 7-18 same as row 6)
+19│├──────────────────────────────────────┤├──────────────────────────────────────┤
+20││UP--DIR                               ││UP--DIR                               │
+21│└─────────────────── 2059M / 56G (3%) ─┘└─────────────────── 2059M / 56G (3%) ─┘
+22│«Hint: Tab changes your current panel.»
+23│«$ [ ]»
+24│‹ 1›«Help  »‹ 2›«Menu  »‹ 3›«View  »‹ 4›«Edit  »‹ 5›«Copy  »‹ 6›«RenMov»‹ 7›«Mkdir »‹ 8›«Delete»‹ 9›«PullDn»‹10›«Quit»

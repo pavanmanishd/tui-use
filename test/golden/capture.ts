@@ -15,6 +15,14 @@ interface Case {
 const dir = new URL(".", import.meta.url).pathname;
 const work = mkdtempSync(join(tmpdir(), "golden-"));
 
+const linux = process.platform === "linux";
+
+const linuxCases: Case[] = [
+  { name: "nano-gnu-linux", command: "nano notes.txt", steps: [800, "\x1b[B\x1b[B", 400] },
+  { name: "htop-linux", command: "htop -d 100", steps: [1500, "\x1b[B", 600] },
+  { name: "mc-linux", command: "mc --nosubshell", steps: [1500, "\x1b[B", 600] },
+];
+
 const cases: Case[] = [
   {
     name: "vim",
@@ -49,9 +57,8 @@ async function capture(c: Case): Promise<void> {
     if (typeof step === "number") await sleep(step);
     else p.write(step);
   }
-  p.kill("SIGKILL");
-  await sleep(100);
   const bytes = chunks.join("");
+  p.kill("SIGKILL");
   writeFileSync(`${dir}${c.name}.bytes`, JSON.stringify(bytes));
   const emu = new Emulator(80, 24, 1000);
   await emu.write(bytes);
@@ -61,4 +68,4 @@ async function capture(c: Case): Promise<void> {
 }
 
 writeFileSync(join(work, "notes.txt"), "# Notes\n\n- buy milk\n- call bank\n- fix the bug\n");
-for (const c of cases) await capture(c);
+for (const c of linux ? linuxCases : cases) await capture(c);
