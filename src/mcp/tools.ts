@@ -124,5 +124,3 @@ export const tools = {
     },
   },
 } as const;
-
-export type ToolName = keyof typeof tools;

@@ -87,7 +87,7 @@ export class Session extends EventEmitter {
   private readonly emulator: Emulator;
   private readonly pty: Pty;
   private readonly recorder?: Recorder;
-  private lastFrame?: Frame;
+  private readonly frames = new Map<string, Frame>();
   private readonly exitPromise: Promise<void>;
 
   constructor(options: SessionOptions) {
@@ -124,8 +124,10 @@ export class Session extends EventEmitter {
       this.lastOutputAt = Date.now();
       this.hasOutput = true;
       this.recorder?.output(data);
-      this.emit("data", data);
-      void this.emulator.write(data).then(() => this.emit("parsed"));
+      void this.emulator.write(data).then(() => {
+        this.emit("output", data);
+        this.emit("parsed");
+      });
     });
 
     this.exitPromise = new Promise((resolve) => {
@@ -201,7 +203,7 @@ export class Session extends EventEmitter {
     if (data) this.pty.write(data);
   }
 
-  async snapshot(mode: SnapshotMode, styles: Styles): Promise<string> {
+  async snapshot(mode: SnapshotMode, styles: Styles, viewer = "default"): Promise<string> {
     await this.emulator.drained();
     const screen = renderScreen(this.emulator, {
       styles,
@@ -223,8 +225,10 @@ export class Session extends EventEmitter {
     });
     const frame = { cols: this.cols, rows: screen.rows };
     const text =
-      mode === "diff" ? renderDiff(header, frame, this.lastFrame) : renderFull(header, frame.rows);
-    this.lastFrame = frame;
+      mode === "diff"
+        ? renderDiff(header, frame, this.frames.get(viewer))
+        : renderFull(header, frame.rows);
+    this.frames.set(viewer, frame);
     return text;
   }
 
@@ -329,6 +333,10 @@ export class Session extends EventEmitter {
     this.emulator.resize(cols, rows);
     if (this.running) this.pty.resize(cols, rows);
     this.recorder?.resize(cols, rows);
+  }
+
+  forgetViewer(viewer: string): void {
+    this.frames.delete(viewer);
   }
 
   serialize(): string {

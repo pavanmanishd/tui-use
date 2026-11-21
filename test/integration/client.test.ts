@@ -71,3 +71,36 @@ describe("DaemonClient", () => {
     b.close();
   });
 });
+
+describe("socket checks", () => {
+  it("refuses a socket in a directory other users can read", async () => {
+    const { chmodSync } = await import("node:fs");
+    const { dirname } = await import("node:path");
+    const socketPath = tempSocket();
+    await fakeDaemon(socketPath, VERSION, 0);
+    chmodSync(dirname(socketPath), 0o755);
+    await expect(
+      DaemonClient.connect({ kind: "cli", socketPath, autostart: false }),
+    ).rejects.toThrow(/accessible to other users/);
+  });
+});
+
+describe("startRequestEnv", () => {
+  it("leaves out variables listed in TUI_USE_SECRETS", async () => {
+    const { startRequestEnv } = (await dist(
+      "daemon/client.js",
+    )) as typeof import("../../src/daemon/client.js");
+    process.env.TUI_USE_SECRETS = "SSH_PASS, DB_PASS";
+    process.env.SSH_PASS = "x";
+    try {
+      const env = startRequestEnv({ EXTRA: "1" });
+      expect(env.SSH_PASS).toBeUndefined();
+      expect(env.TUI_USE_SECRETS).toBeUndefined();
+      expect(env.EXTRA).toBe("1");
+      expect(env.PATH).toBe(process.env.PATH);
+    } finally {
+      delete process.env.TUI_USE_SECRETS;
+      delete process.env.SSH_PASS;
+    }
+  });
+});

@@ -4,7 +4,7 @@ import { resolve as resolvePath } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { VERSION } from "../version.js";
 import { spawnDaemon } from "./autostart.js";
-import { socketPath as defaultSocketPath, logPath } from "./paths.js";
+import { assertPrivateSocket, socketPath as defaultSocketPath, logPath } from "./paths.js";
 import {
   encodeMessage,
   type HelloResult,
@@ -33,6 +33,11 @@ export class DaemonError extends Error {
 const CONNECT_TIMEOUT_MS = 3000;
 
 function open(path: string): Promise<Socket> {
+  try {
+    assertPrivateSocket(path);
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") return Promise.reject(err);
+  }
   return new Promise((resolve, reject) => {
     const socket = createConnection(path);
     socket.once("connect", () => {
@@ -105,7 +110,12 @@ export class DaemonClient extends EventEmitter {
       );
     }
     const closed = new Promise((r) => client.once("close", r));
-    await client.request("shutdown", {});
+    try {
+      await client.request("shutdown", {});
+    } catch (err) {
+      client.close();
+      throw err;
+    }
     await closed;
     client = new DaemonClient(await openWithRetry(path, autostart));
     hello = await client.request<HelloResult>("hello", { version: VERSION, kind: options.kind });
@@ -152,8 +162,17 @@ export class DaemonClient extends EventEmitter {
 }
 
 export function startRequestEnv(extra: Record<string, string> = {}): Record<string, string> {
+  const hidden = new Set(
+    (process.env.TUI_USE_SECRETS ?? "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+  hidden.add("TUI_USE_SECRETS");
   const env: Record<string, string> = {};
-  for (const [k, v] of Object.entries(process.env)) if (v !== undefined) env[k] = v;
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v !== undefined && !hidden.has(k)) env[k] = v;
+  }
   return { ...env, ...extra };
 }
 

@@ -133,6 +133,7 @@ export interface Output {
   text: string;
   json: unknown;
   code: number;
+  asJson?: boolean;
 }
 
 function screenOutput(result: ScreenResult, wait: WaitSpec | undefined): Output {
@@ -145,6 +146,21 @@ function screenOutput(result: ScreenResult, wait: WaitSpec | undefined): Output 
 }
 
 export async function run(command: string, args: string[]): Promise<Output> {
+  let asJson = false;
+  const parseTracked = (cmd: string, a: string[], options: OptionSpec) => {
+    const parsed = parse(cmd, a, options);
+    asJson = parsed.values.json === true;
+    return parsed;
+  };
+  const output = await runCommand(command, args, parseTracked);
+  return { ...output, asJson };
+}
+
+async function runCommand(
+  command: string,
+  args: string[],
+  parse: (cmd: string, a: string[], options: OptionSpec) => ReturnType<typeof parseArgs>,
+): Promise<Output> {
   const connect = (strictVersion = true) => DaemonClient.connect({ kind: "cli", strictVersion });
 
   switch (command) {

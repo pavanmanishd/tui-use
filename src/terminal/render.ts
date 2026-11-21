@@ -146,6 +146,7 @@ function joinTokens(tokens: Token[], cursorIndex: number, marks: boolean): strin
   while (lastMarkedText > cursorIndex && blank(tokens[lastMarkedText] as Token)) {
     lastMarkedText--;
   }
+  if (marks && tokens.some((t) => !blank(t))) unmarkBlankRuns(tokens);
 
   let out = "";
   let open = false;
@@ -162,6 +163,23 @@ function joinTokens(tokens: Token[], cursorIndex: number, marks: boolean): strin
   if (open) out += "»";
   if (out === "«»") out = "« »";
   return out;
+}
+
+function unmarkBlankRuns(tokens: Token[]): void {
+  let start = 0;
+  while (start < tokens.length) {
+    if (!(tokens[start] as Token).marked) {
+      start++;
+      continue;
+    }
+    let end = start;
+    while (end < tokens.length && (tokens[end] as Token).marked) end++;
+    const run = tokens.slice(start, end);
+    if (run.every(blank)) {
+      for (const t of run) t.marked = false;
+    }
+    start = end;
+  }
 }
 
 export interface HeaderInfo {

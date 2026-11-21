@@ -1,6 +1,6 @@
-import { chmodSync, rmSync } from "node:fs";
+import { chmodSync, closeSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { pruneRecordings } from "../recorder/prune.js";
 import { SessionManager } from "../session/manager.js";
 import type { Owner, Session } from "../session/session.js";
@@ -50,6 +50,10 @@ class Connection {
     return { id: this.id, kind: this.kind ?? "cli" };
   }
 
+  get viewer(): string {
+    return this.kind === "mcp" ? this.id : "cli";
+  }
+
   send(message: unknown): void {
     if (!this.socket.destroyed) this.socket.write(encodeMessage(message));
   }
@@ -84,9 +88,38 @@ function listen(server: Server, path: string): Promise<void> {
 
 export class DaemonAlreadyRunning extends Error {}
 
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (err) {
+    return (err as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+function acquireLock(path: string): () => void {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const fd = openSync(path, "wx", 0o600);
+      writeSync(fd, String(process.pid));
+      closeSync(fd);
+      return () => rmSync(path, { force: true });
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      const holder = Number(readFileSync(path, "utf8"));
+      if (holder && processAlive(holder)) {
+        throw new DaemonAlreadyRunning(`a daemon (pid ${holder}) already owns ${dirname(path)}`);
+      }
+      rmSync(path, { force: true });
+    }
+  }
+  throw new DaemonAlreadyRunning(`could not take the daemon lock ${path}`);
+}
+
 export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   const log = options.log ?? (() => {});
   ensurePrivateDir(dirname(options.socketPath));
+  const releaseLock = acquireLock(join(dirname(options.socketPath), "daemon.lock"));
   if (options.recordingsDir && options.config.recordings) {
     for (const path of pruneRecordings(
       options.recordingsDir,
@@ -113,6 +146,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
       connections.delete(conn);
       conn.attachedTo?.detach();
       if (conn.kind === "mcp") {
+        manager.forgetViewer(conn.viewer);
         manager.ownerClosed(conn.id).catch((err) => log(`cleanup failed: ${err}`));
       }
       if (connections.size === 0) idleSince = Date.now();
@@ -131,9 +165,27 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
       });
       return;
     }
+    if (
+      typeof request !== "object" ||
+      request === null ||
+      Array.isArray(request) ||
+      !(
+        request.id === undefined ||
+        typeof request.id === "string" ||
+        typeof request.id === "number"
+      )
+    ) {
+      conn.send({
+        jsonrpc: "2.0",
+        id: null,
+        error: { code: ErrorCode.invalidRequest, message: "invalid request" },
+      });
+      return;
+    }
     const id = request.id ?? null;
     try {
-      if (typeof request.method !== "string" || !(request.method in methods)) {
+      if (closing) throw new Error("the tui-use daemon is shutting down; retry");
+      if (typeof request.method !== "string" || !Object.hasOwn(methods, request.method)) {
         throw new RpcError(ErrorCode.methodNotFound, `unknown method ${String(request.method)}`);
       }
       const method = request.method as Method;
@@ -152,12 +204,13 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   }
 
   async function screen(
+    viewer: string,
     session: Session,
     mode: "full" | "diff",
     styles: "marks" | "none",
     extra: Partial<ScreenResult> = {},
   ): Promise<ScreenResult> {
-    const text = await session.snapshot(mode, styles);
+    const text = await session.snapshot(mode, styles, viewer);
     return {
       session: session.id,
       text,
@@ -177,6 +230,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     switch (method) {
       case "hello": {
         const p = parseParams("hello", raw);
+        if (conn.kind !== undefined) throw new Error("hello was already sent on this connection");
         conn.kind = p.kind;
         return { version: VERSION, sessions: manager.runningCount } satisfies HelloResult;
       }
@@ -184,24 +238,24 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
         const p = parseParams("start", raw);
         const session = manager.start(p, conn.owner);
         const outcome = await session.wait(p.wait);
-        return screen(session, "full", "marks", outcome);
+        return screen(conn.viewer, session, "full", "marks", outcome);
       }
       case "send": {
         const p = parseParams("send", raw);
         const session = controlled(conn, p.session);
         session.send(p.input);
         const outcome = await session.wait(p.wait);
-        return screen(session, p.mode, p.styles, outcome);
+        return screen(conn.viewer, session, p.mode, p.styles, outcome);
       }
       case "snapshot": {
         const p = parseParams("snapshot", raw);
-        return screen(manager.get(p.session), p.mode, p.styles);
+        return screen(conn.viewer, manager.get(p.session), p.mode, p.styles);
       }
       case "wait": {
         const p = parseParams("wait", raw);
         const session = manager.get(p.session);
         const outcome = await session.wait(p.wait);
-        return screen(session, p.mode, p.styles, outcome);
+        return screen(conn.viewer, session, p.mode, p.styles, outcome);
       }
       case "scrollback": {
         const p = parseParams("scrollback", raw);
@@ -230,7 +284,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
         const session = controlled(conn, p.session);
         session.resize(p.cols, p.rows);
         await session.wait({ idle_ms: 100, timeout_ms: 1000 });
-        return screen(session, "full", "marks");
+        return screen(conn.viewer, session, "full", "marks");
       }
       case "recording": {
         const p = parseParams("recording", raw);
@@ -242,6 +296,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
       }
       case "attach": {
         const p = parseParams("attach", raw);
+        if (conn.kind !== "cli") throw new Error("attach is only available from the tui-use CLI");
         return attach(conn, manager.get(p.session));
       }
       case "input": {
@@ -268,13 +323,13 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     const onExit = (code: number) => {
       conn.send({ jsonrpc: "2.0", method: "exit", params: { code } });
     };
-    session.on("data", onData);
+    session.on("output", onData);
     session.once("exit", onExit);
     session.attached++;
     conn.attachedTo = {
       session,
       detach: () => {
-        session.off("data", onData);
+        session.off("output", onData);
         session.off("exit", onExit);
         session.attached--;
         conn.attachedTo = undefined;
@@ -292,8 +347,12 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
   try {
     await listen(server, options.socketPath);
   } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== "EADDRINUSE") throw err;
+    if ((err as NodeJS.ErrnoException).code !== "EADDRINUSE") {
+      releaseLock();
+      throw err;
+    }
     if (await isAlive(options.socketPath)) {
+      releaseLock();
       throw new DaemonAlreadyRunning(`a daemon is already listening on ${options.socketPath}`);
     }
     rmSync(options.socketPath, { force: true });
@@ -316,10 +375,12 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     if (closing) return;
     closing = true;
     clearInterval(sweep);
+    const stopped = new Promise<void>((resolve) => server.close(() => resolve()));
     await manager.killAll();
     for (const conn of connections) conn.socket.destroy();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await stopped;
     rmSync(options.socketPath, { force: true });
+    releaseLock();
     log("tui-use daemon stopped");
     options.onExit?.();
   }

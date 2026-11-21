@@ -61,3 +61,13 @@ describe("tui-use attach", () => {
     expect(a.output()).toContain("session exited (4)");
   });
 });
+
+describe("tui-use attach errors", () => {
+  it("exits 1 for an unknown session instead of hanging", async () => {
+    const env = isolatedEnv();
+    await runCli(env, ["list"]);
+    const a = attachInPty(env, "nosuch");
+    expect(await a.exited).toBe(1);
+    expect(a.output()).toContain('no session "nosuch"');
+  });
+});

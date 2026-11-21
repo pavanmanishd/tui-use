@@ -63,8 +63,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   const output = await run(command, args);
-  const asJson = args.includes("--json");
-  console.log(asJson ? JSON.stringify(output.json, null, 2) : output.text);
+  console.log(output.asJson ? JSON.stringify(output.json, null, 2) : output.text);
   return output.code;
 }
 

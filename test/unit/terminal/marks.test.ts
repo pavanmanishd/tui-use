@@ -47,3 +47,13 @@ describe("style marks", () => {
     expect(screen.rows[0]).toBe("«[a]b»");
   });
 });
+
+describe("blank marked runs", () => {
+  it("drops a painted gutter next to unselected items", async () => {
+    const gutter = "\x1b[48;5;236m \x1b[0m";
+    const { screen } = await screenOf(
+      `${gutter} alpha\r\n\x1b[48;5;236m▌ beta\x1b[0m\r\n${gutter} gamma`,
+    );
+    expect(screen.rows.slice(0, 3)).toEqual(["  alpha", "«▌ beta»", "  gamma"]);
+  });
+});

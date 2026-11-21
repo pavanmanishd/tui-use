@@ -23,7 +23,7 @@ function need<T>(value: T | undefined, what: string): T {
   return value;
 }
 
-export function createMcpServer(client: DaemonClient): McpServer {
+function createMcpServer(client: DaemonClient): McpServer {
   const server = new McpServer({ name: "tui-use", version: VERSION });
   const screen = (r: ScreenResult, wait?: { timeout_ms?: number }) =>
     text(formatScreen(r, wait?.timeout_ms));
@@ -70,7 +70,6 @@ export function createMcpServer(client: DaemonClient): McpServer {
       return screen(result, wait);
     },
     async tui_scrollback(a) {
-      if (a.lines && a.search) throw new Error("pass either lines or search, not both");
       const result = await client.request<{ text: string }>("scrollback", {
         session: a.session as string,
         lines: a.lines as [number, number] | undefined,

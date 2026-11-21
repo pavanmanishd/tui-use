@@ -214,3 +214,74 @@ describe("daemon", () => {
     expect(logs.join("\n")).not.toContain("hunter2");
   });
 });
+
+describe("daemon hardening", () => {
+  it("refuses attach from an MCP connection", async () => {
+    const { socketPath } = await daemon();
+    const a = await client(socketPath, "mcp");
+    await a.request("start", start("sleep 30"));
+    const b = await client(socketPath, "mcp");
+    await expect(b.request("attach", { session: "s1" })).rejects.toThrow(
+      /attach is only available from the tui-use CLI/,
+    );
+  });
+
+  it("rejects non-object lines and a second hello", async () => {
+    const { socketPath } = await daemon();
+    const replies = await raw(socketPath, [
+      "null",
+      "[1,2]",
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "hello",
+        params: { version: "x", kind: "mcp" },
+      }),
+      JSON.stringify({
+        jsonrpc: "2.0",
+        id: 2,
+        method: "hello",
+        params: { version: "x", kind: "cli" },
+      }),
+    ]);
+    const parsed = replies.map((r) => JSON.parse(r));
+    expect(parsed.filter((m) => m.error?.code === -32600)).toHaveLength(2);
+    expect(parsed.find((m) => m.id === 2).error.message).toMatch(/hello was already sent/);
+  });
+
+  it("keeps a separate diff baseline per MCP client", async () => {
+    const { socketPath } = await daemon();
+    const owner = await client(socketPath, "mcp");
+    const reader = await client(socketPath, "mcp");
+    await owner.request(
+      "start",
+      start(fixture("slow.mjs", "2", "300"), { wait: { text: "tick 1" } }),
+    );
+    await reader.request("wait", { session: "s1", wait: { text: "done" } });
+    await reader.request("snapshot", { session: "s1", mode: "diff" });
+    const diff = await owner.request<ScreenResult>("snapshot", { session: "s1", mode: "diff" });
+    expect(diff.text).toContain("tick 2");
+    expect(diff.text).toContain("done");
+  });
+
+  it("lets only one of two racing daemons take a stale socket", async () => {
+    const socketPath = tempSocket();
+    writeFileSync(socketPath, "");
+    const options = { socketPath, config: DEFAULT_CONFIG, recordingsDir: null, idleExitMs: 60_000 };
+    const results = await Promise.allSettled([startDaemon(options), startDaemon(options)]);
+    const started = results.filter((r) => r.status === "fulfilled");
+    expect(started).toHaveLength(1);
+    expect(results.find((r) => r.status === "rejected")?.reason).toBeInstanceOf(
+      DaemonAlreadyRunning,
+    );
+    await (started[0] as PromiseFulfilledResult<{ close(): Promise<void> }>).value.close();
+  });
+
+  it("rejects requests once shutting down", async () => {
+    const { socketPath, daemon: d } = await daemon();
+    const c = await client(socketPath);
+    const closing = d.close();
+    await expect(c.request("list", {})).rejects.toThrow();
+    await closing;
+  });
+});

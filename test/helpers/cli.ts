@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach } from "vitest";
 
@@ -12,6 +12,10 @@ const homes: Array<Record<string, string>> = [];
 afterEach(async () => {
   for (const env of homes.splice(0)) {
     await runCli(env, ["kill", "--all"]);
+    try {
+      const lock = join(dirname(env.TUI_USE_SOCKET as string), "daemon.lock");
+      process.kill(Number(readFileSync(lock, "utf8")), "SIGTERM");
+    } catch {}
   }
 });
 

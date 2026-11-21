@@ -96,6 +96,10 @@ export class SessionManager {
     );
   }
 
+  forgetViewer(viewer: string): void {
+    for (const s of this.all()) s.forgetViewer(viewer);
+  }
+
   async kill(session: Session, signal?: NodeJS.Signals): Promise<void> {
     await session.kill(signal);
     this.remove(session);

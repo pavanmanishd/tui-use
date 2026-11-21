@@ -1,4 +1,4 @@
-import { chmodSync, mkdirSync, statSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, type Stats } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -24,12 +24,30 @@ export function recordingsDir(env: Env = process.env): string {
   return join(base, "tui-use", "recordings");
 }
 
+function assertOwned(path: string, stat: Stats): void {
+  const uid = process.getuid?.();
+  if (stat.isSymbolicLink())
+    throw new Error(`${path} is a symlink; refusing to use it for tui-use`);
+  if (uid !== undefined && stat.uid !== uid) {
+    throw new Error(`${path} is owned by another user; refusing to use it for tui-use`);
+  }
+}
+
 export function ensurePrivateDir(dir: string): void {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
-  const stat = statSync(dir);
-  const uid = process.getuid?.();
-  if (uid !== undefined && stat.uid !== uid) {
-    throw new Error(`${dir} is owned by another user; refusing to use it for the tui-use socket`);
-  }
+  const stat = lstatSync(dir);
+  assertOwned(dir, stat);
   if ((stat.mode & 0o777) !== 0o700) chmodSync(dir, 0o700);
+}
+
+export function assertPrivateSocket(socket: string): void {
+  const dir = dirname(socket);
+  const dirStat = lstatSync(dir);
+  assertOwned(dir, dirStat);
+  if ((dirStat.mode & 0o077) !== 0) {
+    throw new Error(
+      `${dir} is accessible to other users; refusing to connect to the tui-use socket`,
+    );
+  }
+  assertOwned(socket, lstatSync(socket));
 }

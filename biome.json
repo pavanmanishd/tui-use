@@ -5,10 +5,11 @@
       "**",
       "!**/node_modules",
       "!**/dist",
-      "!test/golden/*.bytes",
       "!bench/results",
       "!openspec",
-      "!assets"
+      "!assets",
+      "!test/golden/*.bytes",
+      "!test/golden/*.txt"
     ]
   },
   "formatter": {
@@ -19,8 +20,12 @@
   "linter": {
     "rules": {
       "preset": "recommended",
-      "suspicious": { "noControlCharactersInRegex": "off" },
-      "style": { "noNonNullAssertion": "off" }
+      "suspicious": {
+        "noControlCharactersInRegex": "off"
+      },
+      "style": {
+        "noNonNullAssertion": "off"
+      }
     }
   }
 }

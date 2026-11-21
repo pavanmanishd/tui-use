@@ -2,8 +2,9 @@ import { DaemonClient } from "../daemon/client.js";
 import type { AttachResult } from "../daemon/protocol.js";
 
 const DETACH = "\x1d";
+const SIGNALS = ["SIGTERM", "SIGHUP", "SIGINT"] as const;
 const RESTORE =
-  "\x1b[0m\x1b[?1049l\x1b[?25h\x1b[?1l\x1b[?2004l\x1b[?1000l\x1b[?1002l\x1b[?1006l\r\n";
+  "\x1b[0m\x1b[?1049l\x1b[?25h\x1b[?1l\x1b[?2004l\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1004l\x1b[?1006l\r\n";
 
 export async function attach(session: string): Promise<number> {
   const { stdin, stdout } = process;
@@ -12,7 +13,13 @@ export async function attach(session: string): Promise<number> {
     return 1;
   }
   const client = await DaemonClient.connect({ kind: "cli" });
-  const info = await client.request<AttachResult>("attach", { session });
+  let info: AttachResult;
+  try {
+    info = await client.request<AttachResult>("attach", { session });
+  } catch (err) {
+    client.close();
+    throw err;
+  }
 
   const cols = stdout.columns ?? info.cols;
   const rows = stdout.rows ?? info.rows;
@@ -25,9 +32,11 @@ export async function attach(session: string): Promise<number> {
 
   return new Promise<number>((resolve) => {
     let done = false;
+    const onSignal = () => finish("tui-use attach stopped", 1);
     const finish = (message: string, code: number) => {
       if (done) return;
       done = true;
+      for (const signal of SIGNALS) process.off(signal, onSignal);
       stdin.off("data", onInput);
       stdin.setRawMode(false);
       stdin.pause();
@@ -55,6 +64,7 @@ export async function attach(session: string): Promise<number> {
       else if (method === "exit") finish(`session exited (${params.code})`, 0);
     });
     client.once("close", () => finish("the tui-use daemon closed the connection", 1));
+    for (const signal of SIGNALS) process.once(signal, onSignal);
     stdin.setRawMode(true);
     stdin.resume();
     stdin.on("data", onInput);
