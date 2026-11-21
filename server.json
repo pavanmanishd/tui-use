@@ -1,0 +1,28 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.pavanmanishd/tui-use",
+  "title": "tui-use",
+  "description": "Drive interactive terminal programs (vim, git rebase -i, ssh, REPLs, htop) from an agent.",
+  "repository": {
+    "url": "https://github.com/pavanmanishd/tui-use",
+    "source": "github"
+  },
+  "version": "1.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "@pavanmanishd/tui-use",
+      "version": "1.0.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
+    }
+  ]
+}

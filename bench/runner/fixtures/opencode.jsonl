@@ -1,0 +1,6 @@
+{"type": "step_start", "timestamp": 1, "sessionID": "x", "part": {"type": "step-start"}}
+{"type": "tool_use", "timestamp": 2, "sessionID": "x", "part": {"type": "tool", "tool": "bash"}}
+{"type": "step_finish", "timestamp": 3, "sessionID": "x", "part": {"type": "step-finish", "reason": "tool-calls", "cost": 0.001, "tokens": {"input": 1200, "output": 40, "reasoning": 0, "cache": {"read": 0, "write": 0}}}}
+{"type": "step_start", "timestamp": 4, "sessionID": "x", "part": {"type": "step-start"}}
+{"type": "text", "timestamp": 5, "sessionID": "x", "part": {"type": "text", "text": "Done."}}
+{"type": "step_finish", "timestamp": 6, "sessionID": "x", "part": {"type": "step-finish", "reason": "stop", "cost": 0.002, "tokens": {"input": 1500, "output": 12, "reasoning": 0, "cache": {"read": 800, "write": 0}}}}

@@ -1,0 +1,23 @@
+[
+  {
+    "type": "system",
+    "subtype": "init",
+    "claude_code_version": "2.1.329"
+  },
+  {
+    "type": "result",
+    "subtype": "success",
+    "is_error": false,
+    "duration_ms": 1374,
+    "num_turns": 1,
+    "total_cost_usd": 0.0042964200000000004,
+    "stop_reason": "end_turn",
+    "result": "OK",
+    "usage": {
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 19439,
+      "cache_read_input_tokens": 24652,
+      "output_tokens": 73
+    }
+  }
+]

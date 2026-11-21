@@ -1,0 +1,11 @@
+{
+  "name": "tui-use",
+  "owner": { "name": "pavanmanishd" },
+  "plugins": [
+    {
+      "name": "tui-use",
+      "source": "./plugins/claude-code",
+      "description": "Drive interactive terminal programs (vim, git rebase -i, ssh, REPLs, htop, installers) from Claude Code."
+    }
+  ]
+}

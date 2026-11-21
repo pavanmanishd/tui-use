@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+*.tgz
+bench/results/*/transcripts/
+.DS_Store
+*.swp

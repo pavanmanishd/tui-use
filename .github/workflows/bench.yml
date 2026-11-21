@@ -1,0 +1,44 @@
+name: bench
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeats:
+        description: "Repeats per cell"
+        default: "3"
+
+permissions:
+  contents: read
+
+jobs:
+  bench:
+    strategy:
+      fail-fast: false
+      matrix:
+        cli: [claude-code, gemini-cli, opencode]
+        shard: ["1/4", "2/4", "3/4", "4/4"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci && npm pack
+      - run: npx tsx bench/runner/cli.ts build-images
+      - name: Run the bench
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          CLI: ${{ matrix.cli }}
+          SHARD: ${{ matrix.shard }}
+          REPEATS: ${{ inputs.repeats }}
+        run: npx tsx bench/runner/cli.ts run --cli "$CLI" --shard "$SHARD" --repeats "$REPEATS" --jobs 4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: bench-${{ matrix.cli }}-${{ strategy.job-index }}
+          path: bench/results/
