@@ -15,7 +15,7 @@ The runner drives real agent CLIs in headless mode, pinned in the image:
 
 | CLI | Version | Key |
 |---|---|---|
-| Claude Code | 2.1.329 | `ANTHROPIC_API_KEY` |
+| Claude Code | 2.1.329 | `ANTHROPIC_API_KEY`, or `CLAUDE_CODE_OAUTH_TOKEN` from a Claude subscription |
 | Gemini CLI | 0.37.1 | `GEMINI_API_KEY` |
 | OpenCode | 1.19.6 | `OPENROUTER_API_KEY` |
 

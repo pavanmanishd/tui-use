@@ -7,7 +7,7 @@ interface ModelStats {
 
 export const gemini: Adapter = {
   name: "gemini-cli",
-  keyEnv: "GEMINI_API_KEY",
+  keyEnvs: ["GEMINI_API_KEY"],
   async prepare(container, condition) {
     const settings = condition === "tui-use" ? { mcpServers: { "tui-use": TUI_USE_SERVER } } : {};
     await container.write("/home/agent/.gemini/settings.json", JSON.stringify(settings));

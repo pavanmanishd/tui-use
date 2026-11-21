@@ -13,7 +13,7 @@ export interface Metrics {
 
 export interface Adapter {
   name: string;
-  keyEnv: string;
+  keyEnvs: string[];
   prepare(container: Container, condition: Condition): Promise<void>;
   command(prompt: string, model: string): string[];
   parse(stdout: string, stderr?: string): Metrics;

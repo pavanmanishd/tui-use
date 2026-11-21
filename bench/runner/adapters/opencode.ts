@@ -12,7 +12,7 @@ interface StepFinish {
 
 export const opencode: Adapter = {
   name: "opencode",
-  keyEnv: "OPENROUTER_API_KEY",
+  keyEnvs: ["OPENROUTER_API_KEY"],
   async prepare(container, condition) {
     const config: Record<string, unknown> = { $schema: "https://opencode.ai/config.json" };
     if (condition === "tui-use") {

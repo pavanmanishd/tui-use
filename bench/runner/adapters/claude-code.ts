@@ -4,7 +4,7 @@ const CONFIG = "/home/agent/.bench-mcp.json";
 
 export const claudeCode: Adapter = {
   name: "claude-code",
-  keyEnv: "ANTHROPIC_API_KEY",
+  keyEnvs: ["ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN"],
   async prepare(container, condition) {
     const servers = condition === "tui-use" ? { "tui-use": TUI_USE_SERVER } : {};
     await container.write(CONFIG, JSON.stringify({ mcpServers: servers }));

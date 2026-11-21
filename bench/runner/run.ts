@@ -63,8 +63,9 @@ export async function runBench(options: RunOptions): Promise<ResultRow[]> {
     const adapter = ADAPTERS[entry.cli];
     if (!adapter)
       throw new Error(`unknown cli ${entry.cli}; known: ${Object.keys(ADAPTERS).join(", ")}`);
-    if (!process.env[adapter.keyEnv])
-      throw new Error(`${entry.cli} needs ${adapter.keyEnv} in the environment`);
+    if (!adapter.keyEnvs.some((k) => process.env[k])) {
+      throw new Error(`${entry.cli} needs one of ${adapter.keyEnvs.join(", ")} in the environment`);
+    }
   }
   const transcripts = join(options.outDir, "transcripts");
   mkdirSync(transcripts, { recursive: true });
@@ -116,7 +117,7 @@ async function runOne(job: Job, options: RunOptions, transcripts: string): Promi
     transcript,
   };
   const env = { HOME: "/home/agent", ...QUIET_ENV };
-  const passEnv = [adapter.keyEnv];
+  const passEnv = adapter.keyEnvs.filter((k) => process.env[k]);
   let c: Container | undefined;
   try {
     c = await startContainer(
