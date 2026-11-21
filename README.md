@@ -10,6 +10,10 @@ Coding agents run shell commands one at a time without a terminal. A command tha
 claude mcp add tui-use -- npx -y @pavanmanishd/tui-use@1.0.0 mcp
 ```
 
+![Claude Code squashing three commits with git rebase -i through tui-use](assets/demo.gif)
+
+Claude Code (Opus) squashing three commits with `git rebase -i` through tui-use: it rewrites the todo list with `:2,3s/^pick/squash/`, replaces the combined message, and saves. This is the terminal the agent drove, as tui-use recorded it.
+
 ## What the agent sees
 
 Every call that changes something returns the screen as numbered text. The cursor is `[x]`, and highlighted text such as the selected menu item is wrapped in `«…»`.
