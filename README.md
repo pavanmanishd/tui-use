@@ -238,24 +238,36 @@ With `--input`, a token like `mouse:click:12:5` clicks at row 12, column 5. `--j
 
 ## TUI-Bench
 
-TUI-Bench is a set of 40 interactive tasks covering editors, git, prompts, REPLs, full-screen apps, ssh and pickers. Each task runs in a Docker container and is scored by a scripted checker. The runner drives real agent CLIs (Claude Code, Gemini CLI and OpenCode) twice per task, once with only the shell tool and once with tui-use added, and reports success rate, turns, tokens and wall time. See [bench/README.md](bench/README.md) to reproduce it.
+TUI-Bench is a set of 45 interactive tasks covering editors, git, prompts, REPLs, full-screen apps, ssh and pickers. Each task runs in a Docker container and is scored by a scripted checker. The runner drives real agent CLIs (Claude Code, Gemini CLI and OpenCode) twice per task, once with only the shell tool and once with tui-use added, and reports success rate, turns, tokens and wall time. See [bench/README.md](bench/README.md) to reproduce it.
 
 ### Results
 
-Claude Code 2.1.329 on all 40 tasks, with 3 repeats per cell (480 runs):
+**Locked-down tasks.** Five tasks take away the agent's usual ways to fake a terminal: no general sudo, and Python, Perl, `script`, compilers, terminal-capable editors, bundled pty modules and package downloads are all blocked for the agent user. Each task shows something on screen the agent has to read and answer. Claude Code 2.1.329 with tui-use 1.1, 3 repeats per cell (60 runs):
+
+| Model | Shell only | With tui-use | Median turns (shell / tui-use) | Median tokens (shell / tui-use) | Median wall time (shell / tui-use) |
+|---|---|---|---|---|---|
+| Claude Opus 5.5 | 100% | 100% | 10 / 11 | 267k / 257k | 44 s / 32 s |
+| Claude Haiku 5.5 | 53% | 100% | 13 / 16 | 359k / 383k | 80 s / 32 s |
+
+- With tui-use, both models passed every run and used it in every run.
+- Without it, Haiku failed every run of the quiz and the whiptail wizard and one of three ssh password-change runs.
+- Opus still passed everything, because it builds a terminal from whatever is left. On the ssh tasks it used `SSH_ASKPASS` with `ssh -tt`. On the gdb task it swapped the program's `/dev/tty` handle for stdin from a batch script. For the quiz and the wizard it started its own sshd on a high port and drove `ssh -tt localhost` from a bash coprocess. An earlier run of these tasks also found the node-pty build inside gemini-cli and util-linux's `scriptlive`, which are now blocked too. Those workarounds took it about a third longer than tui-use did.
+
+**All 40 original tasks**, Claude Code with tui-use 1.0, 3 repeats per cell (480 runs):
 
 | Model | Shell only | With tui-use | Median turns (shell / tui-use) | Median tokens (shell / tui-use) | Median wall time (shell / tui-use) |
 |---|---|---|---|---|---|
 | Claude Opus 5.5 | 99% | 100% | 4 / 8 | 84k / 151k | 17 s / 20 s |
 | Claude Haiku 5.5 | 99% | 100% | 4 / 5 | 90k / 114k | 15 s / 14 s |
 
-- With only a shell, Claude Code still finished almost every task. When a program needed a terminal (htop, ssh password prompts, whiptail, vimdiff), it usually wrote its own Python `pty.fork()` driver on the spot. Both failures were `htop-kill` runs without tui-use.
+- With Python in the image, Claude Code finished almost every task with only a shell. When a program needed a terminal (htop, ssh password prompts, whiptail, vimdiff), it usually wrote its own Python `pty.fork()` driver on the spot. Both failures were `htop-kill` runs without tui-use.
 - With tui-use available, the agent chose it in 129 of 240 runs (Opus in 80 of 120, Haiku in 49 of 120), mostly for editors, prompts, pickers, full-screen apps and ssh. Those runs took more turns and tokens than the shell runs, because the agent reads the screen between steps instead of scripting blind.
-- For a frontier model with Python available, tui-use doesn't decide whether an interactive task gets done. It replaces improvised pty scripts with one tool the agent can see and type into, and the agent uses it when it is there.
+
+A re-run of six of these tasks with tui-use 1.1 (36 runs) showed no measurable change in tokens per run despite the smaller snapshots. Among runs that used tui-use, the median moved from 171k to 182k for Opus and from 253k to 257k for Haiku, which is within run-to-run noise. Most of each run's tokens are the agent's own context, not screens.
 
 OpenCode with DeepSeek V4.1 Flash, run through T3 Code on six interaction-heavy tasks with one repeat, passed all 12 runs in both conditions ([details](bench/results/delegated-opencode-2026-11-22/report.md)). Gemini CLI and the open-weight models in [bench/runner/matrix.json](bench/runner/matrix.json) have not been run yet; they need `GEMINI_API_KEY` and `OPENROUTER_API_KEY`.
 
-Two caveats apply. The Claude runs used a Claude subscription token, so Claude Code inside the containers also loaded that account's organization policy, equally in both conditions. And a single repeat for the OpenCode batch is too few to separate small differences. The raw results are in [bench/results/claude-full-2026-11-22](bench/results/claude-full-2026-11-22).
+Two caveats apply. The Claude runs used a Claude subscription token, so Claude Code inside the containers also loaded that account's organization policy, equally in both conditions. And a single repeat for the OpenCode batch is too few to separate small differences. The raw results are in [bench/results](bench/results).
 
 ## Compared with other tools
 

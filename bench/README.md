@@ -55,10 +55,10 @@ Each task is a directory under `tasks/`:
 With Python in the image, a strong model can write its own `pty.fork()` driver for almost any task, so most tasks measure how the agent gets a terminal more than whether it can. Five tasks take those shortcuts away by running `/opt/bench/lockdown.sh` at the end of setup: `quiz-dynamic`, `ssh-forcecommand-menu`, `ssh-expired-password`, `gdb-multi-breakpoint` and `whiptail-wizard`. The script:
 
 - removes the agent's general sudo (a task can add back one exact command),
-- makes Python, Perl, `script`, the compilers and assembler, vim, emacs and gdb root-only (a task can keep one, as the gdb task keeps gdb),
+- makes Python, Perl, `script` and `scriptlive`, the compilers and assembler, vim, emacs and gdb root-only (a task can keep one, as the gdb task keeps gdb),
 - makes every bundled `node-pty` binary root-only except tui-use's own,
 - points the npm, PyPI, GitHub and Debian download hosts at 0.0.0.0 in `/etc/hosts`.
 
-Each of these tasks needs a real terminal and shows something on screen that the agent has to read and react to: a random question, a confirmation code, a region chosen per machine, or values from a random seed. The prompts say which tools are unavailable, so agents don't waste turns finding out. A determined agent can still get around this, for example with `SSH_ASKPASS` and `ssh -tt` on the ssh tasks, and those runs count as passes.
+Each of these tasks needs a real terminal and shows something on screen that the agent has to read and react to: a random question, a confirmation code, a region chosen per machine, or values from a random seed. The prompts say which tools are unavailable, so agents don't waste turns finding out. A determined agent can still get around this, for example with `SSH_ASKPASS` and `ssh -tt`, or by starting its own sshd on a high port, and those runs count as passes. Claude Opus 5.5 did both.
 
 The agent user has passwordless sudo because some tasks need it (`apt`, `adduser`). Checkers keep their expected answers under `/root`, which the agent could read with sudo, so spot-check transcripts of passing runs.
