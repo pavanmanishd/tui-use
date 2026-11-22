@@ -1,4 +1,4 @@
-import { numberRow, renderFull } from "./render.js";
+import { numberRows, renderFull } from "./render.js";
 
 export interface Frame {
   cols: number;
@@ -16,8 +16,7 @@ export function renderDiff(header: string, current: Frame, previous: Frame | und
   const total = current.rows.length;
   if (changed.length > total / 2) return renderFull(header, current.rows);
   if (changed.length === 0) return `${header}\n───\n(no changes)`;
-  const lines = [header, "───"];
-  for (const i of changed) lines.push(numberRow(i + 1, total, current.rows[i] as string));
+  const lines = [header, "───", ...numberRows(changed, current.rows)];
   lines.push(`(${changed.length} of ${total} rows changed)`);
   return lines.join("\n");
 }

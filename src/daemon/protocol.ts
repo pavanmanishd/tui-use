@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MOUSE_ACTIONS } from "../keys/mouse.js";
 
 export const WaitSchema = z
   .object({
@@ -16,6 +17,17 @@ export const InputItemSchema = z.union([
   z.object({ key: z.string() }).strict(),
   z.object({ paste: z.string() }).strict(),
   z.object({ secret: z.string() }).strict(),
+  z
+    .object({
+      mouse: z
+        .object({
+          action: z.enum(MOUSE_ACTIONS),
+          row: z.number().int().min(1).max(1000),
+          col: z.number().int().min(1).max(1000),
+        })
+        .strict(),
+    })
+    .strict(),
 ]);
 
 const session = z.string().min(1);
@@ -48,6 +60,7 @@ export const methods = {
   snapshot: z
     .object({ session, mode: mode.default("full"), styles: styles.default("marks") })
     .strict(),
+  screenshot: z.object({ session }).strict(),
   wait: z
     .object({
       session,
@@ -93,6 +106,7 @@ export interface ScreenResult {
   state: "running" | "exited";
   exit_code: number | null;
   settled?: boolean;
+  spinner_row?: number;
   fired?: string;
   timed_out?: boolean;
 }

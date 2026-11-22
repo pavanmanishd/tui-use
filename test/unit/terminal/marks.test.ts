@@ -64,3 +64,27 @@ describe("highlighted blank cells", () => {
     expect(screen.rows[0]).toBe("[« »] Install nginx");
   });
 });
+
+describe("highlights of different strength", () => {
+  it("marks the brighter of two coloured buttons as the strong one", async () => {
+    const active = "\x1b[48;5;212m   Yes   \x1b[0m";
+    const inactive = "\x1b[48;5;236m   No   \x1b[0m";
+    const { screen } = await screenOf(`${active}  ${inactive}`, {}, 40, 3);
+    expect(screen.rows[0]).toBe("«   Yes   »  ‹   No›");
+  });
+
+  it("keeps a single highlight colour strong", async () => {
+    const { screen } = await screenOf("\x1b[7mone\x1b[0m two \x1b[7mthree\x1b[0m");
+    expect(screen.rows[0]).toBe("«one» two «three»");
+  });
+
+  it("ranks highlights after dropping a painted gutter", async () => {
+    const { screen } = await screenOf("\x1b[47m  \x1b[0mfoo\x1b[44mbar\x1b[0m");
+    expect(screen.rows[0]).toBe("  foo«bar»");
+  });
+
+  it("escapes literal single guillemets", async () => {
+    const { screen } = await screenOf("‹a›");
+    expect(screen.rows[0]).toBe("\\‹a\\›");
+  });
+});

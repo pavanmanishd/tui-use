@@ -1,10 +1,15 @@
 import type { ScreenResult } from "./daemon/protocol.js";
+import type { MouseInput } from "./keys/mouse.js";
 import type { InputItem, SessionInfo } from "./session/session.js";
 
 export function formatScreen(result: ScreenResult, timeoutMs?: number): string {
   const lines = [result.text];
   if (result.fired) lines.push(`(wait fired: ${result.fired})`);
-  else if (result.settled === false) {
+  else if (result.spinner_row !== undefined) {
+    lines.push(
+      `(row ${result.spinner_row} is still changing, likely a spinner or progress counter; wait with text or gone for the result)`,
+    );
+  } else if (result.settled === false) {
     lines.push(
       `(still changing after ${timeoutMs ?? 5000}ms; for slow programs wait with text, regex or gone)`,
     );
@@ -31,7 +36,9 @@ export function formatList(sessions: SessionInfo[]): string {
 export interface InputRequest {
   text?: string;
   keys?: string[];
-  input?: Array<{ text: string } | { key: string } | { secret_env: string }>;
+  input?: Array<
+    { text: string } | { key: string } | { secret_env: string } | { mouse: MouseInput }
+  >;
   secret_env?: string;
   paste?: boolean;
 }

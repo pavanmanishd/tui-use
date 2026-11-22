@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MOUSE_ACTIONS } from "../keys/mouse.js";
 
 const wait = z
   .object({
@@ -64,11 +65,22 @@ export const tools = {
             z.object({ text: z.string() }).strict(),
             z.object({ key: z.string() }).strict(),
             z.object({ secret_env: z.string() }).strict(),
+            z
+              .object({
+                mouse: z
+                  .object({
+                    action: z.enum(MOUSE_ACTIONS),
+                    row: z.number().int().min(1).max(1000),
+                    col: z.number().int().min(1).max(1000),
+                  })
+                  .strict(),
+              })
+              .strict(),
           ]),
         )
         .optional()
         .describe(
-          "Ordered mix of text, keys and secrets. When given, text/keys/secret_env are ignored.",
+          "Ordered mix of text, keys, secrets and mouse events. When given, text/keys/secret_env are ignored. A mouse event clicks or scrolls at a screen row and column as numbered in the snapshot, e.g. {mouse:{action:'click',row:5,col:12}}; it only works in programs that turned on mouse input.",
         ),
       secret_env: z
         .string()
@@ -87,11 +99,13 @@ export const tools = {
     },
   },
   tui_snapshot: {
-    description: "Return the current screen of a session without sending input.",
+    description:
+      "Return the current screen of a session without sending input. Use image: true to also get a PNG of the screen with its colours, for when layout or colour matters more than text.",
     inputSchema: {
       session,
       mode: mode.optional().describe("Default full."),
       styles: styles.optional(),
+      image: z.boolean().optional().describe("Also return a PNG screenshot of the screen."),
     },
   },
   tui_wait: {

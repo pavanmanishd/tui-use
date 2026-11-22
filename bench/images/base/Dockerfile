@@ -34,6 +34,8 @@ RUN useradd -m -s /bin/bash agent \
  && git config --system init.defaultBranch main \
  && su agent -c "npm cache add create-vite@6.5.0"
 
+COPY lockdown.sh /opt/bench/lockdown.sh
+
 ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 TERM=xterm-256color EDITOR=vim
 WORKDIR /home/agent/work
 CMD ["sleep", "infinity"]

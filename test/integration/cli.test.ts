@@ -76,3 +76,17 @@ describe("tui-use CLI", () => {
     expect((await runCli(env, ["--version"])).stdout.trim()).toMatch(/^\d+\.\d+\.\d+/);
   });
 });
+
+describe("tui-use screenshot", () => {
+  it("writes a PNG file", async () => {
+    const { mkdtempSync, readFileSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const env = isolatedEnv();
+    await runCli(env, ["start", fixture("keys.mjs"), "--name", "k"]);
+    const out = join(mkdtempSync(join(tmpdir(), "shot-")), "k.png");
+    const result = await runCli(env, ["screenshot", "k", "--out", out]);
+    expect(result.stdout.trim()).toBe(out);
+    expect(readFileSync(out).subarray(1, 4).toString()).toBe("PNG");
+  });
+});

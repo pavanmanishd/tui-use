@@ -2,7 +2,7 @@
   "mcpServers": {
     "tui-use": {
       "command": "npx",
-      "args": ["-y", "@pavanmanishd/tui-use@1.0.0", "mcp"]
+      "args": ["-y", "@pavanmanishd/tui-use@1.1.0", "mcp"]
     }
   }
 }

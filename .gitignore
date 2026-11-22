@@ -5,3 +5,4 @@ coverage/
 bench/results/*/transcripts/
 .DS_Store
 *.swp
+.env

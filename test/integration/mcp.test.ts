@@ -102,3 +102,24 @@ describe("MCP server", () => {
     await client.close();
   });
 });
+
+describe("MCP screenshots", () => {
+  it("returns a PNG with tui_snapshot image: true", async () => {
+    const client = await connect(isolatedEnv());
+    await client.callTool({ name: "tui_start", arguments: { command: fixture("keys.mjs") } });
+    const result = (await client.callTool({
+      name: "tui_snapshot",
+      arguments: { session: "s1", image: true },
+    })) as { content: Array<{ type: string; data?: string; mimeType?: string; text?: string }> };
+    expect(result.content[0]?.text).toContain("ready");
+    const image = result.content[1];
+    expect(image?.type).toBe("image");
+    expect(image?.mimeType).toBe("image/png");
+    expect(
+      Buffer.from(image?.data as string, "base64")
+        .subarray(1, 4)
+        .toString(),
+    ).toBe("PNG");
+    await client.close();
+  });
+});

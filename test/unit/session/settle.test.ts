@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { settle } from "../../../src/session/settle.js";
+import { onlySpinnerMoving, settle } from "../../../src/session/settle.js";
 
 function clock() {
   let t = 0;
@@ -22,82 +22,89 @@ function clock() {
   };
 }
 
+function base(c: ReturnType<typeof clock>) {
+  return { now: c.now, wait: (ms: number) => c.wait(ms), exited: () => false, started: () => true };
+}
+
 describe("settle", () => {
   it("settles after a burst writer stops", async () => {
     const c = clock();
     let last = 0;
-    let screen = "0";
+    let screen = ["0"];
     for (let i = 1; i <= 5; i++) {
       c.at(i * 100, () => {
         last = c.now();
-        screen = String(i);
+        screen = Array.from({ length: i }, (_, k) => `line ${k}`);
       });
     }
-    const settled = await settle({
+    const result = await settle({
+      ...base(c),
       idleMs: 300,
       timeoutMs: 5000,
       lastActivity: () => last,
-      screenHash: async () => screen,
-      exited: () => false,
-      started: () => true,
-      now: c.now,
-      wait: (ms) => c.wait(ms),
+      screenRows: async () => screen,
     });
-    expect(settled).toBe(true);
-    expect(screen).toBe("5");
+    expect(result).toEqual({ settled: true });
+    expect(screen).toHaveLength(5);
     expect(c.now()).toBeGreaterThanOrEqual(800);
+    expect(c.now()).toBeLessThan(1100);
+  });
+
+  it("reports a spinner instead of waiting for the timeout", async () => {
+    const c = clock();
+    let last = 0;
+    const frames = ["|", "/", "-", "\\"];
+    let n = 0;
+    for (let i = 1; i < 100; i++) {
+      c.at(i * 80, () => {
+        last = c.now();
+        n++;
+      });
+    }
+    const result = await settle({
+      ...base(c),
+      idleMs: 300,
+      timeoutMs: 5000,
+      lastActivity: () => last,
+      screenRows: async () => ["$ npm install", `Installing ${frames[n % 4]}`, ""],
+    });
+    expect(result).toEqual({ settled: true, spinnerRow: 2 });
     expect(c.now()).toBeLessThan(1000);
   });
 
-  it("times out on a spinner", async () => {
+  it("keeps waiting while several rows change", async () => {
     const c = clock();
     let last = 0;
-    for (let i = 1; i < 100; i++) c.at(i * 80, () => (last = c.now()));
-    const settled = await settle({
+    let n = 0;
+    for (let i = 1; i < 100; i++) {
+      c.at(i * 80, () => {
+        last = c.now();
+        n++;
+      });
+    }
+    const result = await settle({
+      ...base(c),
       idleMs: 300,
       timeoutMs: 2000,
       lastActivity: () => last,
-      screenHash: async () => String(last),
-      exited: () => false,
-      started: () => true,
-      now: c.now,
-      wait: (ms) => c.wait(ms),
+      screenRows: async () => [`log ${n}`, `progress ${n * 7}`],
     });
-    expect(settled).toBe(false);
+    expect(result).toEqual({ settled: false });
     expect(c.now()).toBe(2000);
   });
 
   it("returns at once when the process has exited", async () => {
     const c = clock();
-    const settled = await settle({
+    const result = await settle({
+      ...base(c),
+      exited: () => true,
       idleMs: 300,
       timeoutMs: 5000,
       lastActivity: () => 0,
-      screenHash: async () => "",
-      exited: () => true,
-      started: () => true,
-      now: c.now,
-      wait: (ms) => c.wait(ms),
+      screenRows: async () => [],
     });
-    expect(settled).toBe(true);
+    expect(result).toEqual({ settled: true });
     expect(c.now()).toBe(0);
-  });
-
-  it("waits for the screen hash to stop changing", async () => {
-    const c = clock();
-    let n = 0;
-    const settled = await settle({
-      idleMs: 0,
-      timeoutMs: 5000,
-      lastActivity: () => -1000,
-      screenHash: async () => String(Math.min(n++, 3)),
-      exited: () => false,
-      started: () => true,
-      now: c.now,
-      wait: (ms) => c.wait(ms),
-    });
-    expect(settled).toBe(true);
-    expect(n).toBeGreaterThanOrEqual(5);
   });
 
   it("does not settle before the first output", async () => {
@@ -108,17 +115,47 @@ describe("settle", () => {
       started = true;
       last = c.now();
     });
-    const settled = await settle({
+    const result = await settle({
+      ...base(c),
+      started: () => started,
       idleMs: 300,
       timeoutMs: 5000,
       lastActivity: () => last,
-      screenHash: async () => String(started),
-      exited: () => false,
-      started: () => started,
-      now: c.now,
-      wait: (ms) => c.wait(ms),
+      screenRows: async () => [String(started)],
     });
-    expect(settled).toBe(true);
+    expect(result).toEqual({ settled: true });
     expect(c.now()).toBeGreaterThanOrEqual(1500);
+  });
+});
+
+describe("onlySpinnerMoving", () => {
+  it("accepts small changes confined to one row", () => {
+    expect(
+      onlySpinnerMoving([
+        ["a", "x 1%"],
+        ["a", "x 2%"],
+        ["a", "x 3%"],
+      ]),
+    ).toEqual({ ok: true, row: 2 });
+  });
+
+  it("accepts an unchanged screen", () => {
+    expect(onlySpinnerMoving([["a"], ["a"], ["a"]])).toEqual({ ok: true });
+  });
+
+  it("rejects a single change that then stops", () => {
+    expect(onlySpinnerMoving([["[ ] a"], ["[ ] a"], ["[x] a"]])).toEqual({ ok: false });
+    expect(onlySpinnerMoving([["[ ] a"], ["[x] a"], ["[x] a"]])).toEqual({ ok: false });
+  });
+
+  it("rejects changes on different rows or wide changes", () => {
+    expect(
+      onlySpinnerMoving([
+        ["a", "b"],
+        ["c", "b"],
+        ["c", "d"],
+      ]).ok,
+    ).toBe(false);
+    expect(onlySpinnerMoving([["a"], ["a long new line of output"], ["a"]]).ok).toBe(false);
   });
 });

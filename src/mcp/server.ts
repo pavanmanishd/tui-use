@@ -58,7 +58,16 @@ function createMcpServer(client: DaemonClient): McpServer {
         mode: (a.mode as "full" | "diff" | undefined) ?? "full",
         styles: a.styles as "marks" | "none" | undefined,
       });
-      return screen(result);
+      if (!a.image) return screen(result);
+      const shot = await client.request<{ png: string }>("screenshot", {
+        session: a.session as string,
+      });
+      return {
+        content: [
+          { type: "text", text: formatScreen(result) },
+          { type: "image", data: shot.png, mimeType: "image/png" },
+        ],
+      };
     },
     async tui_wait(a) {
       const wait = a.wait as { timeout_ms?: number };

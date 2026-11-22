@@ -76,7 +76,7 @@ describe("real programs", () => {
     await s.wait({ text: "F10" });
     await s.wait({ idle_ms: 500, timeout_ms: 3000 });
     const snap = await s.snapshot("full", "marks");
-    expect(snap).toMatch(/«\s*PID USER/);
+    expect(snap).toMatch(/[«‹]\s*PID USER/);
     expect(snap).toContain("· alt ·");
     s.send([{ key: "f10" }]);
     expect(await s.wait({ exit: true })).toMatchObject({ fired: "exit" });
