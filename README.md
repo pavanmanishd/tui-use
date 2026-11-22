@@ -253,6 +253,8 @@ TUI-Bench is a set of 45 interactive tasks covering editors, git, prompts, REPLs
 - Without it, Haiku failed every run of the quiz and the whiptail wizard and one of three ssh password-change runs.
 - Opus still passed everything, because it builds a terminal from whatever is left. On the ssh tasks it used `SSH_ASKPASS` with `ssh -tt`. On the gdb task it swapped the program's `/dev/tty` handle for stdin from a batch script. For the quiz and the wizard it started its own sshd on a high port and drove `ssh -tt localhost` from a bash coprocess. An earlier run of these tasks also found the node-pty build inside gemini-cli and util-linux's `scriptlive`, which are now blocked too. Those workarounds took it about a third longer than tui-use did.
 
+Grok 4.7 and DeepSeek V4.1 Flash, run through T3 Code on the same five tasks with one repeat, passed all 20 runs in both conditions ([details](bench/results/delegated-locked-2026-11-22/report.md)). Without tui-use they got there by building their own terminal, including a hand-encoded ELF that unlocks a pty and an `openpty()` call made from inside gdb.
+
 **All 40 original tasks**, Claude Code with tui-use 1.0, 3 repeats per cell (480 runs):
 
 | Model | Shell only | With tui-use | Median turns (shell / tui-use) | Median tokens (shell / tui-use) | Median wall time (shell / tui-use) |
@@ -265,7 +267,7 @@ TUI-Bench is a set of 45 interactive tasks covering editors, git, prompts, REPLs
 
 A re-run of six of these tasks with tui-use 1.1 (36 runs) showed no measurable change in tokens per run despite the smaller snapshots. Among runs that used tui-use, the median moved from 171k to 182k for Opus and from 253k to 257k for Haiku, which is within run-to-run noise. Most of each run's tokens are the agent's own context, not screens.
 
-OpenCode with DeepSeek V4.1 Flash, run through T3 Code on six interaction-heavy tasks with one repeat, passed all 12 runs in both conditions ([details](bench/results/delegated-opencode-2026-11-22/report.md)). Gemini CLI and the open-weight models in [bench/runner/matrix.json](bench/runner/matrix.json) have not been run yet; they need `GEMINI_API_KEY` and `OPENROUTER_API_KEY`.
+OpenCode with DeepSeek V4.1 Flash, run through T3 Code on six interaction-heavy tasks with one repeat, passed all 12 runs in both conditions ([details](bench/results/delegated-opencode-2026-11-22/report.md)). Gemini CLI, Codex and the OpenRouter models in [bench/runner/matrix.json](bench/runner/matrix.json) have not been run: Gemini and OpenRouter need `GEMINI_API_KEY` and `OPENROUTER_API_KEY`, and Codex fails before starting with a `service_tier` configuration error.
 
 Two caveats apply. The Claude runs used a Claude subscription token, so Claude Code inside the containers also loaded that account's organization policy, equally in both conditions. And a single repeat for the OpenCode batch is too few to separate small differences. The raw results are in [bench/results](bench/results).
 
