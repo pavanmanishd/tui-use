@@ -140,7 +140,12 @@ describe("onlySpinnerMoving", () => {
   });
 
   it("accepts an unchanged screen", () => {
-    expect(onlySpinnerMoving([["a"], ["a"], ["a"]])).toEqual({ ok: true, row: undefined });
+    expect(onlySpinnerMoving([["a"], ["a"], ["a"]])).toEqual({ ok: true });
+  });
+
+  it("rejects a single change that then stops", () => {
+    expect(onlySpinnerMoving([["[ ] a"], ["[ ] a"], ["[x] a"]])).toEqual({ ok: false });
+    expect(onlySpinnerMoving([["[ ] a"], ["[x] a"], ["[x] a"]])).toEqual({ ok: false });
   });
 
   it("rejects changes on different rows or wide changes", () => {

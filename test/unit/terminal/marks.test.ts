@@ -78,6 +78,11 @@ describe("highlights of different strength", () => {
     expect(screen.rows[0]).toBe("«one» two «three»");
   });
 
+  it("ranks highlights after dropping a painted gutter", async () => {
+    const { screen } = await screenOf("\x1b[47m  \x1b[0mfoo\x1b[44mbar\x1b[0m");
+    expect(screen.rows[0]).toBe("  foo«bar»");
+  });
+
   it("escapes literal single guillemets", async () => {
     const { screen } = await screenOf("‹a›");
     expect(screen.rows[0]).toBe("\\‹a\\›");

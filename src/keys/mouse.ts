@@ -18,6 +18,7 @@ export interface MouseInput {
 export interface MouseModes {
   tracking: boolean;
   sgr: boolean;
+  releases: boolean;
 }
 
 const BUTTON: Record<MouseAction, number> = {
@@ -29,7 +30,7 @@ const BUTTON: Record<MouseAction, number> = {
   scroll_down: 65,
 };
 
-const LEGACY_LIMIT = 223;
+const LEGACY_LIMIT = 95;
 
 function event(button: number, row: number, col: number, release: boolean, sgr: boolean): string {
   if (sgr) return `\x1b[<${button};${col};${row}${release ? "m" : "M"}`;
@@ -37,18 +38,25 @@ function event(button: number, row: number, col: number, release: boolean, sgr: 
   return `\x1b[M${String.fromCharCode(32 + code, 32 + col, 32 + row)}`;
 }
 
-export function encodeMouse(input: MouseInput, modes: MouseModes): string {
+export function encodeMouse(
+  input: MouseInput,
+  modes: MouseModes,
+  screen: { rows: number; cols: number },
+): string {
   if (!modes.tracking) {
     throw new Error("the program has not turned on mouse input; use keys instead");
   }
   const { row, col, action } = input;
+  if (row > screen.rows || col > screen.cols) {
+    throw new Error(`row ${row}, col ${col} is outside the ${screen.cols}x${screen.rows} screen`);
+  }
   if (!modes.sgr && (row > LEGACY_LIMIT || col > LEGACY_LIMIT)) {
     throw new Error(`row and col must be at most ${LEGACY_LIMIT} for this program's mouse mode`);
   }
   const button = BUTTON[action];
   if (action === "scroll_up" || action === "scroll_down")
     return event(button, row, col, false, modes.sgr);
-  const click =
-    event(button, row, col, false, modes.sgr) + event(button, row, col, true, modes.sgr);
+  const press = event(button, row, col, false, modes.sgr);
+  const click = modes.releases ? press + event(button, row, col, true, modes.sgr) : press;
   return action === "double_click" ? click + click : click;
 }

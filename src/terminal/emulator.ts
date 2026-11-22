@@ -1,6 +1,7 @@
 import serializeAddon from "@xterm/addon-serialize";
 import unicode11Addon from "@xterm/addon-unicode11";
 import xtermHeadless from "@xterm/headless";
+import type { MouseModes } from "../keys/mouse.js";
 
 const { Terminal } = xtermHeadless;
 const { SerializeAddon } = serializeAddon;
@@ -70,8 +71,9 @@ export class Emulator {
     return this.term.modes.applicationCursorKeysMode;
   }
 
-  get mouseModes(): { tracking: boolean; sgr: boolean } {
-    return { tracking: this.term.modes.mouseTrackingMode !== "none", sgr: this.sgr };
+  get mouseModes(): MouseModes {
+    const mode = this.term.modes.mouseTrackingMode;
+    return { tracking: mode !== "none", sgr: this.sgr, releases: mode !== "x10" };
   }
 
   get bracketedPaste(): boolean {

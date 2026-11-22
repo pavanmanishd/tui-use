@@ -194,7 +194,7 @@ export class Session extends EventEmitter {
       } else if ("text" in item) {
         out += encodeText(item.text);
       } else if ("mouse" in item) {
-        out += encodeMouse(item.mouse, this.emulator.mouseModes);
+        out += encodeMouse(item.mouse, this.emulator.mouseModes, this.emulator);
       } else if ("paste" in item) {
         out += encodePaste(item.paste, this.emulator.bracketedPaste);
       } else {

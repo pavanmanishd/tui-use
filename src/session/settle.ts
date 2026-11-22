@@ -37,19 +37,24 @@ function changedSpan(a: string, b: string): number {
 
 export function onlySpinnerMoving(samples: string[][]): { ok: boolean; row?: number } {
   let row: number | undefined;
+  let quietPairs = 0;
   for (let s = 1; s < samples.length; s++) {
     const before = samples[s - 1] as string[];
     const after = samples[s] as string[];
     if (before.length !== after.length) return { ok: false };
     const changed = after.flatMap((line, i) => (line === before[i] ? [] : [i]));
-    if (changed.length === 0) continue;
+    if (changed.length === 0) {
+      quietPairs++;
+      continue;
+    }
     const i = changed[0] as number;
     if (changed.length > 1 || (row !== undefined && row !== i + 1)) return { ok: false };
     if (changedSpan(before[i] as string, after[i] as string) > SPINNER_MAX_SPAN)
       return { ok: false };
     row = i + 1;
   }
-  return { ok: true, row };
+  if (row === undefined) return { ok: true };
+  return quietPairs === 0 ? { ok: true, row } : { ok: false };
 }
 
 export async function settle(options: SettleOptions): Promise<SettleResult> {

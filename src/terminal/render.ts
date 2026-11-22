@@ -22,6 +22,8 @@ interface Token {
   weak?: boolean;
 }
 
+const blank = (t: Token) => t.text.trim() === "";
+
 function effectiveBackground(cell: {
   isInverse(): number;
   getBgColorMode(): number;
@@ -168,6 +170,7 @@ export function renderScreen(emu: Emulator, options: RenderOptions): Screen {
       tokens.forEach((t, i) => {
         t.marked = backgrounds[i] !== baseline;
       });
+      if (tokens.some((t) => !blank(t))) unmarkGutter(tokens);
       weakenFainterHighlights(tokens, backgrounds, baseline as string);
     }
     const cursorIndex = showCursor && y === cursorRow ? cursorTokenIndex(tokens, cursorCol) : -1;
@@ -183,8 +186,6 @@ function cursorTokenIndex(tokens: Token[], col: number): number {
   return -1;
 }
 
-const blank = (t: Token) => t.text.trim() === "";
-
 function joinTokens(tokens: Token[], cursorIndex: number, marks: boolean): string {
   let last = tokens.length - 1;
   while (last > cursorIndex) {
@@ -196,7 +197,6 @@ function joinTokens(tokens: Token[], cursorIndex: number, marks: boolean): strin
   while (lastMarkedText > cursorIndex && blank(tokens[lastMarkedText] as Token)) {
     lastMarkedText--;
   }
-  if (marks && tokens.some((t) => !blank(t))) unmarkGutter(tokens);
 
   const CLOSE = { strong: "»", weak: "›" } as const;
   const OPEN = { strong: "«", weak: "‹" } as const;

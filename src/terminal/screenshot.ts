@@ -55,9 +55,7 @@ export function encodePng(width: number, height: number, rgb: Uint8Array): Buffe
   header.set([8, 2, 0, 0, 0], 8);
   const raw = Buffer.alloc((width * 3 + 1) * height);
   for (let y = 0; y < height; y++) {
-    rgb.subarray(y * width * 3, (y + 1) * width * 3).forEach((v, i) => {
-      raw[y * (width * 3 + 1) + 1 + i] = v;
-    });
+    raw.set(rgb.subarray(y * width * 3, (y + 1) * width * 3), y * (width * 3 + 1) + 1);
   }
   return Buffer.concat([
     Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -72,8 +70,15 @@ export interface ScreenshotOptions {
   secretRanges?: (text: string) => Array<[number, number]>;
 }
 
+const MAX_CELLS = 80_000;
+
 export function renderPng(emu: Emulator, options: ScreenshotOptions): Buffer {
   const { cols, rows } = emu;
+  if (cols * rows > MAX_CELLS) {
+    throw new Error(
+      `screenshots are limited to ${MAX_CELLS} cells; this screen is ${cols}x${rows}`,
+    );
+  }
   const width = cols * CELL_W;
   const height = rows * CELL_H;
   const pixels = new Uint8Array(width * height * 3);

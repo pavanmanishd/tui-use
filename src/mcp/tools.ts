@@ -70,8 +70,8 @@ export const tools = {
                 mouse: z
                   .object({
                     action: z.enum(MOUSE_ACTIONS),
-                    row: z.number().int().min(1),
-                    col: z.number().int().min(1),
+                    row: z.number().int().min(1).max(1000),
+                    col: z.number().int().min(1).max(1000),
                   })
                   .strict(),
               })
