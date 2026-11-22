@@ -1,6 +1,6 @@
 # TUI-Bench
 
-TUI-Bench measures how well coding agents handle interactive terminal programs, with and without tui-use. It has 40 tasks in seven categories: editors, git, prompts, REPLs, full-screen apps, remote (ssh) and pickers.
+TUI-Bench measures how well coding agents handle interactive terminal programs, with and without tui-use. It has 45 tasks in seven categories: editors, git, prompts, REPLs, full-screen apps, remote (ssh) and pickers.
 
 Each task runs twice in a fresh Docker container:
 
@@ -35,7 +35,7 @@ npx tsx bench/runner/cli.ts report bench/results/<run-id>
 
 `run` accepts `--task ID` and `--cli NAME` (both repeatable), `--condition shell|tui-use`, and `--shard 2/4` to run every fourth task so a run can be split across machines. The `bench` GitHub workflow runs one job per CLI and shard and uploads each job's results; combine the `results.jsonl` files and run `report` on the combined directory. Results go to `bench/results/<run-id>/results.jsonl`, one line per run, with the transcript of each run under `transcripts/`. `report.md` holds the summary table.
 
-A full run is 40 tasks, five CLI and model pairs, two conditions and three repeats: 1,200 agent runs. Expect it to cost real money.
+A full run is 45 tasks, five CLI and model pairs, two conditions and three repeats: 1,350 agent runs. Expect it to cost real money.
 
 ## Task format
 
@@ -49,5 +49,16 @@ Each task is a directory under `tasks/`:
 | `solve.sh` | agent | A reference solution driven through the `tui-use` CLI |
 
 `selftest` checks every task without an agent: right after setup the checker must fail, and after `solve.sh` it must pass. CI runs it whenever `bench/` changes.
+
+## Locked-down tasks
+
+With Python in the image, a strong model can write its own `pty.fork()` driver for almost any task, so most tasks measure how the agent gets a terminal more than whether it can. Five tasks take those shortcuts away by running `/opt/bench/lockdown.sh` at the end of setup: `quiz-dynamic`, `ssh-forcecommand-menu`, `ssh-expired-password`, `gdb-multi-breakpoint` and `whiptail-wizard`. The script:
+
+- removes the agent's general sudo (a task can add back one exact command),
+- makes Python, Perl, `script`, the compilers and assembler, vim, emacs and gdb root-only (a task can keep one, as the gdb task keeps gdb),
+- makes every bundled `node-pty` binary root-only except tui-use's own,
+- points the npm, PyPI, GitHub and Debian download hosts at 0.0.0.0 in `/etc/hosts`.
+
+Each of these tasks needs a real terminal and shows something on screen that the agent has to read and react to: a random question, a confirmation code, a region chosen per machine, or values from a random seed. The prompts say which tools are unavailable, so agents don't waste turns finding out. A determined agent can still get around this, for example with `SSH_ASKPASS` and `ssh -tt` on the ssh tasks, and those runs count as passes.
 
 The agent user has passwordless sudo because some tasks need it (`apt`, `adduser`). Checkers keep their expected answers under `/root`, which the agent could read with sudo, so spot-check transcripts of passing runs.
